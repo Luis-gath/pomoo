@@ -77,3 +77,6 @@ vcs.xml
 # Misc
 *.txt
 *.bat.log
+
+# APKs de prueba y previsualizaciones generadas
+apks/

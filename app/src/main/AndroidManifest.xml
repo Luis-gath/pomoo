@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -14,6 +15,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
+        android:name=".PomodoroApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -35,7 +37,7 @@
         </activity>
 
         <service
-            android:name=".service.PomodoroForegroundService"
+            android:name=".features.timer.service.PomodoroForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -43,7 +45,7 @@
         </service>
 
         <receiver
-            android:name=".widget.PomodoroWidgetReceiver"
+            android:name=".features.widget.PomodoroWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -53,10 +55,10 @@
                 android:resource="@xml/pomodoro_widget_info" />
         </receiver>
 
-        <receiver android:name=".receiver.TaskReceiver" android:exported="false" />
+        <receiver android:name=".features.tasks.data.TaskReceiver" android:exported="false" />
 
         <service
-            android:name=".service.TaskSpeakingService"
+            android:name=".features.tasks.service.TaskSpeakingService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />

@@ -11,6 +11,4 @@
     <string name="premium_option_3_months">3 Meses</string>
     <string name="premium_option_lifetime">Permanente</string>
     <string name="restore_purchases">Restaurar Compras</string>
-    <string name="loading">Cargando...</string>
-    <string name="error_billing">Error en el sistema de pagos</string>
 </resources>

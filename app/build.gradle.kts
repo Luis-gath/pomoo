@@ -3,7 +3,8 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.kotlinSerialization)
-    id("org.jetbrains.kotlin.kapt")
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -24,8 +25,21 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Por defecto la build de debug usa su propio applicationId, para poder tener
+            // dev y producción instaladas a la vez en el mismo dispositivo.
+            //
+            // Con -PsameAppId se compila sin sufijo, de modo que el APK actualice
+            // una instalación existente en lugar de instalarse al lado:
+            //     ./gradlew assembleDebug -PsameAppId
+            if (!project.hasProperty("sameAppId")) {
+                applicationIdSuffix = ".debug"
+                versionNameSuffix = "-dev"
+            }
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -47,6 +61,20 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    lint {
+        // Estos detectores de Compose, en la versión de lint que trae AGP 8.7.3, revientan
+        // con NullPointerException al analizar código Kotlin 2.0. Son fallos de la
+        // herramienta, no hallazgos reales: sin desactivarlos `lintDebug` (y por tanto el
+        // CI) falla siempre. Conviene reactivarlos al actualizar AGP.
+        disable += "AutoboxingStateCreation"
+        disable += "MutableCollectionMutableState"
+    }
+}
+
+ksp {
+    // Exporta el esquema de Room a app/schemas para poder escribir migraciones reales.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -63,12 +91,14 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.room.runtime)
-    @Suppress("KaptUsage")
-    kapt(libs.androidx.room.compiler)
+    ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
     implementation(libs.coil.compose)
     implementation(libs.billing.ktx)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
 
@@ -77,6 +107,7 @@ dependencies {
     implementation(libs.androidx.glance.material3)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
