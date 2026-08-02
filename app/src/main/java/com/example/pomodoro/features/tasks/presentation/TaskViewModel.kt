@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskStatus
 import com.example.pomodoro.features.tasks.data.TaskRepository
+import com.example.pomodoro.features.tasks.domain.ApplyWeeklyScheduleUseCase
 import com.example.pomodoro.features.tasks.domain.CreateTaskUseCase
+import com.example.pomodoro.features.tasks.domain.WeeklyScheduleTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -73,8 +75,45 @@ enum class DashboardTab {
 @HiltViewModel
 class TaskViewModel @Inject constructor(
     private val repository: TaskRepository,
-    private val createTaskUseCase: CreateTaskUseCase
+    private val createTaskUseCase: CreateTaskUseCase,
+    private val applyWeeklySchedule: ApplyWeeklyScheduleUseCase
 ) : ViewModel() {
+
+    /** Resultado de aplicar una rutina semanal, para avisar en pantalla. */
+    private val _scheduleMessage = MutableStateFlow<String?>(null)
+    val scheduleMessage: StateFlow<String?> = _scheduleMessage.asStateFlow()
+
+    private val _applyingSchedule = MutableStateFlow(false)
+    val applyingSchedule: StateFlow<Boolean> = _applyingSchedule.asStateFlow()
+
+    fun consumeScheduleMessage() { _scheduleMessage.value = null }
+
+    fun applySchedule(
+        template: WeeklyScheduleTemplate,
+        weeks: Int,
+        courseOrProject: String,
+        withReminders: Boolean
+    ) {
+        if (_applyingSchedule.value) return
+        _applyingSchedule.value = true
+
+        viewModelScope.launch {
+            try {
+                val result = applyWeeklySchedule(
+                    template = template,
+                    weeks = weeks,
+                    courseOrProject = courseOrProject,
+                    withReminders = withReminders
+                )
+                _scheduleMessage.value =
+                    "${result.created} sesiones creadas para ${result.weeks} semana(s)"
+            } catch (e: Exception) {
+                _scheduleMessage.value = "No se pudo aplicar el horario: ${e.message}"
+            } finally {
+                _applyingSchedule.value = false
+            }
+        }
+    }
 
     private val _dashboardState = MutableStateFlow(TaskDashboardUiState())
     val dashboardState: StateFlow<TaskDashboardUiState> = _dashboardState.asStateFlow()

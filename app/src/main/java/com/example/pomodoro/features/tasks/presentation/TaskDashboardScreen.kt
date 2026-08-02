@@ -35,8 +35,22 @@ fun TaskDashboardScreen(
 ) {
     val state by viewModel.dashboardState.collectAsState()
     val scope = rememberCoroutineScope()
-        
+
+    var showScheduleDialog by remember { mutableStateOf(false) }
+    val applyingSchedule by viewModel.applyingSchedule.collectAsState()
+    val scheduleMessage by viewModel.scheduleMessage.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+
+    LaunchedEffect(scheduleMessage) {
+        scheduleMessage?.let {
+            showScheduleDialog = false
+            snackbar.showSnackbar(it)
+            viewModel.consumeScheduleMessage()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { 
@@ -51,6 +65,10 @@ fun TaskDashboardScreen(
                     }
                 },
                 actions = {
+                    // Aplicar una rutina semanal de golpe
+                    IconButton(onClick = { showScheduleDialog = true }) {
+                        Icon(Icons.Default.EventRepeat, contentDescription = "Aplicar un horario")
+                    }
                     // Botón Calendario
                     IconButton(onClick = onOpenCalendar) {
                         Icon(Icons.Default.CalendarMonth, contentDescription = "Calendario")
@@ -210,6 +228,16 @@ fun TaskDashboardScreen(
     }
     
     // --- Bottom Sheet para agregar tarea ---
+    if (showScheduleDialog) {
+        WeeklyScheduleDialog(
+            isApplying = applyingSchedule,
+            onDismiss = { showScheduleDialog = false },
+            onApply = { template, weeks, course, reminders ->
+                viewModel.applySchedule(template, weeks, course, reminders)
+            }
+        )
+    }
+
     if (state.showAddSheet) {
         AddTaskBottomSheet(
             onDismiss = { viewModel.hideAddSheet() },
