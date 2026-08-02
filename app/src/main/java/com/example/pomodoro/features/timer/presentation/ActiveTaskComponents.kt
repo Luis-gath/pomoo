@@ -28,6 +28,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pomodoro.features.timer.domain.PomodoroMode
+import com.example.pomodoro.shared.ui.theme.BackdropPanel
+import com.example.pomodoro.shared.ui.theme.OnBackdrop
+import com.example.pomodoro.shared.ui.theme.OnBackdropMuted
 @Composable
 fun ActiveTaskHeaderLabel() {
     Text(
@@ -36,7 +39,7 @@ fun ActiveTaskHeaderLabel() {
             letterSpacing = 2.sp,
             fontWeight = FontWeight.Bold
         ),
-        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+        color = OnBackdropMuted,
         modifier = Modifier.padding(bottom = 8.dp)
     )
 }
@@ -72,7 +75,7 @@ private fun EmptyTaskCard(
             .fillMaxWidth()
             .clickable(onClick = onSelectTask),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+        color = BackdropPanel,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
         Row(
@@ -85,12 +88,12 @@ private fun EmptyTaskCard(
                     text = "Sin tarea activa",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    color = OnBackdrop
                 )
                 Text(
                     text = "Elige una tarea para enfocarte",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    color = OnBackdropMuted
                 )
             }
             
@@ -118,7 +121,7 @@ private fun RunningTaskCard(
     val shadowElevation = if (state.isRunning) 8.dp else 2.dp
     
     // Animation
-    val containerColor = MaterialTheme.colorScheme.surface
+    val containerColor = BackdropPanel
     
     Surface(
         modifier = modifier
@@ -176,7 +179,7 @@ private fun RunningTaskCard(
                      Text(
                         text = "${state.completedPomodoros}/${state.totalPomodoros}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = OnBackdropMuted
                     )
                 }
             }
@@ -207,7 +210,7 @@ private fun RunningTaskCard(
                     Text(
                         text = state.etaString,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = OnBackdropMuted
                     )
                 }
                 

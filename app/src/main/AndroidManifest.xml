@@ -34,6 +34,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+                Hace que la app aparezca en el menú "Compartir" de Android. Así, cuando llega
+                un PDF por WhatsApp o se encuentra un enlace en el navegador, se archiva en su
+                área sin tener que entrar a buscarlo después.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
 
         <service
@@ -56,6 +72,21 @@
         </receiver>
 
         <receiver android:name=".features.tasks.data.TaskReceiver" android:exported="false" />
+
+        <!--
+            Permite entregar los archivos del área a otras apps (NotebookLM, Drive, el visor
+            de PDF). La autoridad usa ${applicationId} para que funcione igual en la variante
+            de depuración, que lleva el sufijo .debug.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <service
             android:name=".features.tasks.service.TaskSpeakingService"

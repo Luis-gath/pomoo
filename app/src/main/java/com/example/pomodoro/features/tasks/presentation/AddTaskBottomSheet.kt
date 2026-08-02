@@ -23,7 +23,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import com.example.pomodoro.features.tasks.data.TaskPriority
+import com.example.pomodoro.features.tasks.domain.StudyTemplate
 import com.example.pomodoro.shared.ui.components.PickerDateUtils
 import com.example.pomodoro.shared.ui.components.PomodoroDatePickerDialog
 import com.example.pomodoro.shared.ui.components.PomodoroTimePickerDialog
@@ -48,6 +51,7 @@ fun AddTaskBottomSheet(
     var selectedDate by remember { mutableStateOf(initialDate) } // Use initial date if present
     var priority by remember { mutableStateOf(TaskPriority.MEDIUM) }
     var totalPomodoros by remember { mutableIntStateOf(4) }
+    var selectedTemplate by remember { mutableStateOf<StudyTemplate?>(null) }
     var showAdvanced by remember { mutableStateOf(false) }
     var focusMinutes by remember { mutableIntStateOf(25) }
     var shortBreakMinutes by remember { mutableIntStateOf(5) }
@@ -216,7 +220,46 @@ fun AddTaskBottomSheet(
             )
             
             Spacer(Modifier.height(20.dp))
-            
+
+            // --- Plantilla de estudio ---
+            // Rellena de golpe la configuración Pomodoro según el tipo de material, para no
+            // tener que decidir cinco números en cada tarea. Sigue siendo editable debajo.
+            Text(
+                text = "Tipo de estudio",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(StudyTemplate.entries) { template ->
+                    FilterChip(
+                        selected = selectedTemplate == template,
+                        onClick = {
+                            selectedTemplate = template
+                            totalPomodoros = template.totalPomodoros
+                            focusMinutes = template.focusMinutes
+                            shortBreakMinutes = template.shortBreakMinutes
+                            longBreakMinutes = template.longBreakMinutes
+                            longBreakEvery = template.longBreakEvery
+                        },
+                        label = { Text(template.label) }
+                    )
+                }
+            }
+
+            selectedTemplate?.let { template ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "${template.hint} · unos ${template.approximateMinutes} min",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
             // --- Selector de Pomodoros ---
             PomodoroStepper(
                 value = totalPomodoros,

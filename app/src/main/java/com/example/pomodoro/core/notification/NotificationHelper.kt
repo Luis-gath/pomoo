@@ -34,18 +34,26 @@ class NotificationHelper(private val context: Context) {
         notificationManager.createNotificationChannel(channel)
     }
 
+    /**
+     * Abre la app al pulsar la notificación. Sin esto la notificación se queda muda al
+     * tocarla, que es lo que pasaba con los avisos de fin de intervalo y de tarea.
+     */
+    private fun openAppIntent(requestCode: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            context, requestCode, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     fun buildTimerNotification(
         mode: PomodoroMode,
         timeLeftFormatted: String,
         isRunning: Boolean
     ): Notification {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val pendingIntent = openAppIntent(REQUEST_OPEN_FROM_TIMER)
 
         // Action Intents
         val toggleIntent = Intent(context, PomodoroForegroundService::class.java).apply {
@@ -105,6 +113,7 @@ class NotificationHelper(private val context: Context) {
             .setContentText("${mode.title} ha finalizado.")
             .setSmallIcon(R.drawable.ic_notification_timer)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(openAppIntent(REQUEST_OPEN_FROM_COMPLETE))
             .setAutoCancel(true)
             .build()
 
@@ -119,6 +128,7 @@ class NotificationHelper(private val context: Context) {
             .setContentText("Has completado todos los pomodoros de: $taskTitle")
             .setSmallIcon(R.drawable.ic_notification_timer)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(openAppIntent(REQUEST_OPEN_FROM_TASK_COMPLETE))
             .setAutoCancel(true)
             .build()
 
@@ -132,6 +142,11 @@ class NotificationHelper(private val context: Context) {
         // configuración ya no se puede cambiar. Se usa un id nuevo para poder silenciarlo
         // y que manden los ajustes de la app.
         const val CHANNEL_HIGH_PRIORITY_ID = "pomodoro_alert_channel_v2"
+        // Códigos distintos para que cada notificación tenga su propio PendingIntent.
+        private const val REQUEST_OPEN_FROM_TIMER = 0
+        private const val REQUEST_OPEN_FROM_COMPLETE = 10
+        private const val REQUEST_OPEN_FROM_TASK_COMPLETE = 11
+
         const val NOTIFICATION_ID = 1
         const val NOTIFICATION_COMPLETE_ID = 2
         const val NOTIFICATION_TASK_COMPLETE_ID = 3

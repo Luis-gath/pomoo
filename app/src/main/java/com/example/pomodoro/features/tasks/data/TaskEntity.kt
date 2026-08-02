@@ -37,7 +37,10 @@ data class TaskEntity(
     // --- Información básica ---
     val title: String,
     val notes: String = "",                     // Notas/descripción opcional
-    val courseOrProject: String = "",           // Curso o proyecto asociado
+    val courseOrProject: String = "",           // Curso o proyecto asociado (texto libre, heredado)
+
+    /** Área a la que pertenece la tarea. Sustituirá a [courseOrProject] cuando esté migrado. */
+    val areaId: Int? = null,
     
     // --- Fechas y tiempos ---
     val dueDateTime: Long? = null,              // Fecha límite original (legacy o general)

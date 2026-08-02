@@ -11,8 +11,13 @@ import com.example.pomodoro.features.timer.data.SettingsDataStore
 import com.example.pomodoro.features.stats.data.LegacyStatsStore
 import com.example.pomodoro.core.database.StatsDao
 import com.example.pomodoro.core.database.TaskDao
+import com.example.pomodoro.core.database.AreaDao
+import com.example.pomodoro.core.database.ItemDao
+import com.example.pomodoro.core.database.MIGRATION_7_8
 import com.example.pomodoro.core.database.TaskDatabase
 import com.example.pomodoro.core.feedback.SessionFeedback
+import com.example.pomodoro.core.focus.DoNotDisturbController
+import com.example.pomodoro.features.areas.data.FileImporter
 import com.example.pomodoro.features.timer.domain.PomodoroEngine
 import com.example.pomodoro.core.notification.NotificationHelper
 import com.example.pomodoro.features.tasks.data.TaskAlarmScheduler
@@ -46,6 +51,7 @@ object DataModule {
             // A partir de la 7 (la actual) cualquier cambio EXIGE una Migration explícita:
             // sin ella Room lanza excepción en vez de borrar los datos del usuario.
             .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)
+            .addMigrations(MIGRATION_7_8)
             .build()
 
     @Provides
@@ -53,6 +59,12 @@ object DataModule {
 
     @Provides
     fun provideStatsDao(database: TaskDatabase): StatsDao = database.statsDao
+
+    @Provides
+    fun provideAreaDao(database: TaskDatabase): AreaDao = database.areaDao
+
+    @Provides
+    fun provideItemDao(database: TaskDatabase): ItemDao = database.itemDao
 
     // --- Preferencias ---
 
@@ -68,6 +80,10 @@ object DataModule {
     @Provides
     @Singleton
     fun provideLegacyStatsStore(@ApplicationContext context: Context) = LegacyStatsStore(context)
+
+    @Provides
+    @Singleton
+    fun provideFileImporter(@ApplicationContext context: Context) = FileImporter(context)
 
     @Provides
     @Singleton
@@ -101,6 +117,11 @@ object DataModule {
     @Provides
     @Singleton
     fun provideSessionFeedback(@ApplicationContext context: Context) = SessionFeedback(context)
+
+    @Provides
+    @Singleton
+    fun provideDoNotDisturbController(@ApplicationContext context: Context) =
+        DoNotDisturbController(context)
 
     @Provides
     @Singleton

@@ -22,6 +22,9 @@ class SettingsDataStore(private val context: Context) : SettingsRepository {
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val BACKGROUND_URI = stringPreferencesKey("background_uri")
+        val TONE = stringPreferencesKey("interface_tone")
+        val FOCUS_MODE = booleanPreferencesKey("focus_mode_enabled")
+        val BLOCK_NOTIFICATIONS = booleanPreferencesKey("block_notifications_in_focus")
     }
 
     override val settingsFlow: Flow<Settings> = context.dataStore.data.map { preferences ->
@@ -34,7 +37,10 @@ class SettingsDataStore(private val context: Context) : SettingsRepository {
             soundEnabled = preferences[Keys.SOUND_ENABLED] ?: true,
             vibrationEnabled = preferences[Keys.VIBRATION_ENABLED] ?: true,
             keepScreenOn = preferences[Keys.KEEP_SCREEN_ON] ?: false,
-            backgroundUri = preferences[Keys.BACKGROUND_URI]
+            backgroundUri = preferences[Keys.BACKGROUND_URI],
+            toneName = preferences[Keys.TONE] ?: "CALIDA",
+            focusModeEnabled = preferences[Keys.FOCUS_MODE] ?: false,
+            blockNotificationsInFocus = preferences[Keys.BLOCK_NOTIFICATIONS] ?: true
         )
     }
 
@@ -48,6 +54,9 @@ class SettingsDataStore(private val context: Context) : SettingsRepository {
             preferences[Keys.SOUND_ENABLED] = settings.soundEnabled
             preferences[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled
             preferences[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
+            preferences[Keys.TONE] = settings.toneName
+            preferences[Keys.FOCUS_MODE] = settings.focusModeEnabled
+            preferences[Keys.BLOCK_NOTIFICATIONS] = settings.blockNotificationsInFocus
             if (settings.backgroundUri != null) {
                 preferences[Keys.BACKGROUND_URI] = settings.backgroundUri
             } else {

@@ -2,6 +2,7 @@ package com.example.pomodoro.features.timer.presentation
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,17 +32,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.pomodoro.R
 import com.example.pomodoro.core.audio.CustomTrack
 import com.example.pomodoro.features.timer.domain.PomodoroMode
-import com.example.pomodoro.shared.ui.theme.FocusColor
-import com.example.pomodoro.shared.ui.theme.LongBreakColor
-import com.example.pomodoro.shared.ui.theme.ShortBreakColor
+import com.example.pomodoro.shared.ui.theme.LocalAppPalette
+import com.example.pomodoro.shared.ui.theme.OnBackdrop
+import com.example.pomodoro.shared.ui.theme.OnBackdropMuted
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -55,8 +60,23 @@ fun HomeScreen(
     // Los ajustes llegan desde el ViewModel: la pantalla ya no instancia el DataStore.
     val settings by viewModel.settings.collectAsState()
 
-    // Ajuste "Mantener pantalla encendida": antes el interruptor no hacía nada.
+    // Esta pantalla siempre tiene fondo oscuro (imagen + velo), así que sus iconos de sistema
+    // deben ser claros aunque el móvil esté en tema claro. Al salir se restaura lo que
+    // corresponda al tema, porque el resto de pantallas sí siguen el modo del sistema.
     val view = LocalView.current
+    val systemInDark = isSystemInDarkTheme()
+    DisposableEffect(systemInDark) {
+        val window = (view.context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        controller?.isAppearanceLightStatusBars = false
+        controller?.isAppearanceLightNavigationBars = false
+        onDispose {
+            controller?.isAppearanceLightStatusBars = !systemInDark
+            controller?.isAppearanceLightNavigationBars = !systemInDark
+        }
+    }
+
+    // Ajuste "Mantener pantalla encendida": antes el interruptor no hacía nada.
     DisposableEffect(settings.keepScreenOn) {
         val window = (view.context as? Activity)?.window
         if (settings.keepScreenOn) {
@@ -77,14 +97,16 @@ fun HomeScreen(
         }
     }
 
+    // Colores del tono elegido en Ajustes.
+    val palette = LocalAppPalette.current
     val modeColor = when (uiState.mode) {
-        PomodoroMode.Focus -> FocusColor
-        PomodoroMode.ShortBreak -> ShortBreakColor
-        PomodoroMode.LongBreak -> LongBreakColor
+        PomodoroMode.Focus -> palette.focus
+        PomodoroMode.ShortBreak -> palette.shortBreak
+        PomodoroMode.LongBreak -> palette.longBreak
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Background Layer
+        // Fondo: la imagen que haya elegido el usuario o, si no hay ninguna, la que trae la app.
         if (settings.backgroundUri != null) {
             AsyncImage(
                 model = settings.backgroundUri,
@@ -92,45 +114,65 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            // Scrim
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
-            )
         } else {
-             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+            Image(
+                painter = painterResource(R.drawable.bg_default),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
         }
 
-        // Main Layout
+        // Velo oscuro común a ambos casos: sin él el temporizador no se lee sobre el cielo.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.6f))
+        )
+
+        // Modo enfoque serio: mientras corre un bloque de foco la pantalla se queda solo con
+        // el temporizador. Todo lo demás desaparece, incluida la navegación, porque cada
+        // elemento visible es una invitación a salirse.
+        val inSeriousFocus = settings.focusModeEnabled &&
+            uiState.isRunning &&
+            uiState.mode == PomodoroMode.Focus
+
+        if (inSeriousFocus) {
+            SeriousFocusLayer(
+                remaining = uiState.progress,
+                timeText = "%02d:%02d".format(
+                    (uiState.currentTimeMillis / 1000) / 60,
+                    (uiState.currentTimeMillis / 1000) % 60
+                ),
+                modeText = uiState.mode.title,
+                accent = modeColor,
+                onPause = { viewModel.toggleTimer() }
+            )
+            return@Box
+        }
+
+        // El contenido pasa por debajo de las barras del sistema, ahora transparentes:
+        // este margen evita que la fila de iconos quede tapada por la barra de gestos.
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp), 
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // -----------------------------------------------------
             // Header Row: Focus Control + Music
             // -----------------------------------------------------
+            // El control de play/pausa vive ahora en el centro del cuadrante, así que la
+            // cabecera se queda solo con la música. El nombre del modo tampoco hace falta
+            // aquí: ya se lee dentro del temporizador.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 24.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.End
             ) {
-                // Focus Control
-                FocusHeaderControl(
-                    modeText = uiState.mode.title,
-                    isRunning = uiState.isRunning,
-                    pomodoroLabel = null, // Moved to Active Task Card
-                    onPause = { viewModel.toggleTimer() },
-                    onResume = { viewModel.toggleTimer() },
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
                 // Music Icon
                 MusicHeaderIcon(
                     audioSettings = audioSettings,
@@ -179,14 +221,15 @@ fun HomeScreen(
                     (uiState.currentTimeMillis / 1000) % 60
                 )
                 
-                TimerRingGamerPremium(
-                    progress = uiState.progress,
+                // uiState.progress es la fracción de tiempo que QUEDA (va de 1 a 0).
+                TimerGauge(
+                    remaining = uiState.progress,
                     timeText = timeText,
                     modeText = uiState.mode.title,
-                    mainColor = modeColor,
-                    modifier = Modifier.fillMaxWidth(0.85f), // Slightly smaller to fit header
-                    strokeWidth = 24.dp,
-                    pomodoroProgress = null // Removed from ring
+                    accent = modeColor,
+                    isRunning = uiState.isRunning,
+                    onToggleRunning = { viewModel.toggleTimer() },
+                    modifier = Modifier.fillMaxWidth(0.85f)
                 )
             }
             
@@ -196,7 +239,7 @@ fun HomeScreen(
             Text(
                 text = "Hoy: ${uiState.sessionsToday} | Total: ${uiState.sessionsTotal}",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = OnBackdropMuted
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -207,13 +250,16 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                  IconButton(onClick = { navController.navigate("tasks_list") }) {
-                    Icon(Icons.Default.Assignment, contentDescription = "Tareas", tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Default.Assignment, contentDescription = "Tareas", tint = OnBackdrop)
+                }
+                IconButton(onClick = { navController.navigate("areas") }) {
+                    Icon(Icons.Default.Folder, contentDescription = "Mis áreas", tint = OnBackdrop)
                 }
                 IconButton(onClick = { navController.navigate("stats") }) {
-                    Icon(Icons.Default.BarChart, contentDescription = "Estadísticas", tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Default.BarChart, contentDescription = "Estadísticas", tint = OnBackdrop)
                 }
                 IconButton(onClick = { navController.navigate("settings") }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = OnBackdrop)
                 }
             }
             

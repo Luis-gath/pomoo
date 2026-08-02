@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rutas que el FileProvider puede exponer a otras aplicaciones.
+
+  Android prohíbe pasar rutas de archivo directas entre apps: hay que entregar un
+  `content://` generado por un provider. Sin esto no se puede enviar nada a NotebookLM,
+  Drive ni al visor de PDF del sistema.
+
+  Solo se expone la carpeta del material de las áreas, nada más de los datos de la app.
+-->
+<paths>
+    <files-path name="materiales_de_areas" path="areas/" />
+</paths>

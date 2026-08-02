@@ -11,6 +11,10 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import com.example.pomodoro.core.audio.AudioSettingsDataStore
 import com.example.pomodoro.core.feedback.SessionFeedback
+import com.example.pomodoro.core.focus.DoNotDisturbController
+import com.example.pomodoro.features.timer.domain.PomodoroMode
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.example.pomodoro.features.timer.data.SettingsRepository
 import kotlinx.coroutines.flow.first
 import com.example.pomodoro.features.timer.domain.PomodoroSessionController
@@ -46,6 +50,7 @@ class PomodoroForegroundService : Service() {
     @Inject lateinit var audioPlayerManager: AudioPlayerManager
     @Inject lateinit var audioSettingsDataStore: AudioSettingsDataStore
     @Inject lateinit var sessionFeedback: SessionFeedback
+    @Inject lateinit var doNotDisturb: DoNotDisturbController
     @Inject lateinit var settingsRepository: SettingsRepository
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
@@ -60,6 +65,7 @@ class PomodoroForegroundService : Service() {
         startForegroundWithState(controller.state.value)
 
         observeStateForNotification()
+        observeFocusBlocking()
         observeEvents()
         observeBackgroundMusic()
     }
@@ -78,6 +84,29 @@ class PomodoroForegroundService : Service() {
     }
 
     // --- Observadores ---
+
+    /**
+     * Activa No molestar mientras corre un bloque de enfoque y lo desactiva al salir de él.
+     * Vive en el Service y no en la pantalla porque el temporizador sigue corriendo con la
+     * app cerrada: si dependiera de la interfaz, el bloqueo se levantaría al minimizar.
+     */
+    private fun observeFocusBlocking() {
+        scope.launch {
+            combine(
+                controller.state,
+                settingsRepository.settingsFlow
+            ) { state, settings ->
+                settings.focusModeEnabled &&
+                    settings.blockNotificationsInFocus &&
+                    state.isRunning &&
+                    state.mode == PomodoroMode.Focus
+            }
+                .distinctUntilChanged()
+                .collect { shouldBlock ->
+                    if (shouldBlock) doNotDisturb.startBlocking() else doNotDisturb.stopBlocking()
+                }
+        }
+    }
 
     private fun observeStateForNotification() {
         scope.launch {

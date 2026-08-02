@@ -12,7 +12,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.example.pomodoro.core.focus.DoNotDisturbController
+import com.example.pomodoro.shared.ui.theme.AppTone
+import com.example.pomodoro.shared.ui.theme.palette
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +37,21 @@ fun SettingsScreen(
 ) {
     // Los ajustes se leen y escriben a través del ViewModel, no del DataStore directamente.
     val settings by viewModel.settings.collectAsState()
+
+    // El permiso de No molestar se comprueba al volver a la pantalla, porque se concede
+    // fuera de la app y no hay forma de que nos avise cuando cambia.
+    val context = LocalContext.current
+    val dnd = remember { DoNotDisturbController(context) }
+    val dndSettingsIntent = remember { dnd.accessSettingsIntent() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var dndGranted by remember { mutableStateOf(dnd.hasAccess()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) dndGranted = dnd.hasAccess()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Errores al cambiar el fondo: antes se tragaban en silencio.
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -85,6 +110,88 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            Text("Modo enfoque serio", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+
+            SwitchSetting("Pantalla despejada durante el foco", settings.focusModeEnabled) {
+                viewModel.updateSettings(settings.copy(focusModeEnabled = it))
+            }
+            Text(
+                "Durante los bloques de enfoque solo se ve el temporizador. Los controles " +
+                    "aparecen al tocar la pantalla.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (settings.focusModeEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SwitchSetting("Silenciar el móvil (No molestar)", settings.blockNotificationsInFocus) {
+                    viewModel.updateSettings(settings.copy(blockNotificationsInFocus = it))
+                }
+
+                // Bloquear avisos de otras apps exige un permiso que solo se concede a mano
+                // en una pantalla del sistema: no se puede pedir con un diálogo normal.
+                if (settings.blockNotificationsInFocus && !dndGranted) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Falta conceder el acceso a No molestar. Sin él, el modo enfoque " +
+                            "funciona igual pero no silencia las demás aplicaciones.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    TextButton(onClick = { context.startActivity(dndSettingsIntent) }) {
+                        Text("Conceder acceso")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Tono de la interfaz", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AppTone.entries.forEach { tone ->
+                val selected = settings.toneName == tone.name
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = selected,
+                            onClick = { viewModel.updateSettings(settings.copy(toneName = tone.name)) }
+                        )
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selected,
+                        onClick = { viewModel.updateSettings(settings.copy(toneName = tone.name)) }
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(tone.label)
+                        Text(
+                            tone.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // Muestra de los tres colores del tono.
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(
+                            tone.palette.focus,
+                            tone.palette.shortBreak,
+                            tone.palette.longBreak
+                        ).forEach { swatch ->
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(swatch)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
             Text("Fondo (Background)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -98,7 +205,7 @@ fun SettingsScreen(
                 if (settings.backgroundUri != null) {
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(onClick = { viewModel.updateBackground(null) }) {
-                        Text("Quitar Fondo")
+                        Text("Restaurar predeterminado")
                     }
                 }
             }

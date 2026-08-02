@@ -10,6 +10,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.pomodoro.features.areas.presentation.AreaDetailScreen
+import com.example.pomodoro.features.areas.presentation.AreasScreen
+import com.example.pomodoro.features.areas.presentation.ReceiveShareScreen
 import com.example.pomodoro.features.premium.presentation.PremiumUpgradeScreen
 import com.example.pomodoro.features.tasks.presentation.CalendarWeekScreen
 import com.example.pomodoro.features.timer.presentation.HomeScreen
@@ -20,6 +23,12 @@ import com.example.pomodoro.features.tasks.presentation.TaskDetailScreen
 import com.example.pomodoro.features.tasks.presentation.TaskEditorScreen
 import com.example.pomodoro.features.tasks.presentation.TaskViewModel
 import com.example.pomodoro.features.timer.presentation.PomodoroViewModel
+
+/** Rutas con nombre, para no repetir cadenas sueltas por el código. */
+object NavGraph {
+    const val AREAS = "areas"
+    const val RECEIVE_SHARE = "receive_share"
+}
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -32,6 +41,32 @@ fun NavGraph(navController: NavHostController) {
     ) {
         composable("home") {
             HomeScreen(navController = navController, viewModel = pomodoroViewModel)
+        }
+
+        // --- Áreas: cursos, habilidades y proyectos con su material ---
+        composable(NavGraph.AREAS) {
+            AreasScreen(
+                onAreaClick = { area -> navController.navigate("area_detail/${area.id}") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "area_detail/{areaId}",
+            arguments = listOf(navArgument("areaId") { type = NavType.IntType })
+        ) {
+            AreaDetailScreen(onBack = { navController.popBackStack() })
+        }
+
+        // Destino al que se llega desde el menú "Compartir" de otra aplicación.
+        composable(NavGraph.RECEIVE_SHARE) {
+            ReceiveShareScreen(
+                onDone = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate("home") { popUpTo(0) }
+                    }
+                }
+            )
         }
         composable("settings") {
             SettingsScreen(navController = navController, viewModel = pomodoroViewModel)

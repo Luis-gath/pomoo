@@ -9,5 +9,14 @@ data class Settings(
     val soundEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val keepScreenOn: Boolean = false,
-    val backgroundUri: String? = null
+    val backgroundUri: String? = null,
+
+    /** Tono de la interfaz, elegido en Ajustes. Se guarda por nombre del enum. */
+    val toneName: String = "CALIDA",
+
+    /** Modo enfoque serio: durante el foco la pantalla solo muestra el temporizador. */
+    val focusModeEnabled: Boolean = false,
+
+    /** Dentro del modo enfoque, activar No molestar. Requiere permiso del sistema. */
+    val blockNotificationsInFocus: Boolean = true
 )

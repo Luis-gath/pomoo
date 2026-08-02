@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.example.pomodoro.core.audio.AudioSettings
+import com.example.pomodoro.shared.ui.theme.BackdropPanel
+import com.example.pomodoro.shared.ui.theme.OnBackdrop
+import com.example.pomodoro.shared.ui.theme.OnBackdropMuted
 
 @Composable
 fun MusicHeaderIcon(
@@ -69,7 +72,7 @@ fun MusicHeaderIcon(
             val tint = if (audioSettings.isMusicEnabled && !audioSettings.isMuted) 
                 MaterialTheme.colorScheme.primary 
             else 
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                OnBackdropMuted
 
             Icon(
                 imageVector = icon,
