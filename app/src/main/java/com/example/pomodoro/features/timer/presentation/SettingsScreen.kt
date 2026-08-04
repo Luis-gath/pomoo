@@ -147,6 +147,18 @@ fun SettingsScreen(
                 }
 
                 SettingsSection(
+                    title = "Premium",
+                    description = "Apoya el desarrollo y desbloquea las funciones avanzadas."
+                ) {
+                    Button(
+                        onClick = { navController.navigate("premium") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Ver opciones premium")
+                    }
+                }
+
+                SettingsSection(
                     title = "Temporizador",
                     description = "Define la duración de cada fase y el ritmo de tus ciclos."
                 ) {

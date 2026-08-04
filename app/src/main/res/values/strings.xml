@@ -8,6 +8,9 @@
     <string name="premium_remaining">Versión premium restante: %1$d días</string>
     <string name="premium_remaining_expired">Tu versión premium ha expirado</string>
     <string name="premium_lifetime_active">Licencia permanente activa</string>
+    <string name="premium_subscription_active">Suscripción activa</string>
+    <string name="premium_billing_unavailable">No se pudo conectar con Google Play. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="premium_no_products">Las opciones premium no están disponibles por ahora. Inténtalo más tarde.</string>
     <string name="premium_option_3_months">3 meses</string>
     <string name="premium_option_lifetime">Permanente</string>
     <string name="restore_purchases">Restaurar compras</string>

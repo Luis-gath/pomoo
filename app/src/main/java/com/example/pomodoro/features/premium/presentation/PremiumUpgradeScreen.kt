@@ -1,7 +1,6 @@
 package com.example.pomodoro.features.premium.presentation
 
 import android.app.Activity
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,19 +9,23 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.pomodoro.R
+import com.example.pomodoro.features.premium.data.BillingState
 import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,8 +37,27 @@ fun PremiumUpgradeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // La compra puede completarse fuera de la app (pago pendiente, otro dispositivo),
+    // así que hay que releer el estado al volver, no solo al conectar.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+    }
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.dismissMessage()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(text = stringResource(id = R.string.premium_upgrade_title)) },
@@ -55,11 +77,7 @@ fun PremiumUpgradeScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                // Header / Intro
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "Premium",
@@ -67,87 +85,130 @@ fun PremiumUpgradeScreen(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Benefits List
                 BenefitItem(text = stringResource(id = R.string.premium_benefit_1))
                 BenefitItem(text = stringResource(id = R.string.premium_benefit_2))
                 BenefitItem(text = stringResource(id = R.string.premium_benefit_3))
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Premium Status
-                if (uiState.isPremium) {
-                    if (uiState.premiumUntilMillis != null && uiState.premiumUntilMillis!! > System.currentTimeMillis()) {
-                        val remainingMillis = uiState.premiumUntilMillis!! - System.currentTimeMillis()
-                        val days = TimeUnit.MILLISECONDS.toDays(remainingMillis)
-                        Text(
-                            text = stringResource(id = R.string.premium_remaining, days),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    } else if (uiState.premiumUntilMillis == null || uiState.premiumUntilMillis == 0L) {
-                         // Lifetime
-                        Text(
-                            text = stringResource(id = R.string.premium_lifetime_active),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    } else {
-                         Text(
-                            text = stringResource(id = R.string.premium_remaining_expired),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.error,
-                             modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
-                }
+                PremiumStatus(uiState, Modifier.align(Alignment.CenterHorizontally))
             }
 
-            // Purchase Options
-            if (!uiState.isPremium || (uiState.premiumUntilMillis != null && uiState.premiumUntilMillis!! < System.currentTimeMillis() + (86400000 * 5))) { 
-                // Show options if not premium OR logic to extend (e.g. less than 5 days) 
-                // For simplicity, showing if not premium or if it's a sub to allow extend.
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // 3 Months Subscription
-                    Button(
-                        onClick = { activity?.let { viewModel.buySubscription(it) } },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = stringResource(id = R.string.premium_option_3_months))
-                            Text(text = uiState.subscriptionPrice, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+            PurchaseSection(
+                uiState = uiState,
+                onBuySubscription = { activity?.let(viewModel::buySubscription) },
+                onBuyLifetime = { activity?.let(viewModel::buyLifetime) },
+                onRestore = viewModel::restorePurchases
+            )
+        }
+    }
+}
 
-                    // Lifetime
-                    OutlinedButton(
-                        onClick = { activity?.let { viewModel.buyLifetime(it) } },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = stringResource(id = R.string.premium_option_lifetime))
-                            Text(text = uiState.lifetimePrice, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+@Composable
+private fun PremiumStatus(uiState: PremiumUiState, modifier: Modifier = Modifier) {
+    when {
+        uiState.isLifetime -> Text(
+            text = stringResource(id = R.string.premium_lifetime_active),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = modifier
+        )
 
-                    TextButton(
-                        onClick = { viewModel.restorePurchases() },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) {
-                        Text(text = stringResource(id = R.string.restore_purchases))
-                    }
+        uiState.subscriptionActive -> {
+            val renewsAt = uiState.renewsAtMillis
+            val days = renewsAt
+                ?.minus(System.currentTimeMillis())
+                ?.takeIf { it > 0 }
+                ?.let { TimeUnit.MILLISECONDS.toDays(it) }
+
+            Text(
+                // Sin fecha fiable se dice solo que está activa. Antes se mostraba una
+                // cuenta atrás calculada con noventa días fijos, que no era real.
+                text = if (days != null) {
+                    stringResource(id = R.string.premium_remaining, days)
+                } else {
+                    stringResource(id = R.string.premium_subscription_active)
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+@Composable
+private fun PurchaseSection(
+    uiState: PremiumUiState,
+    onBuySubscription: () -> Unit,
+    onBuyLifetime: () -> Unit,
+    onRestore: () -> Unit
+) {
+    // Con licencia permanente no hay nada más que vender.
+    if (uiState.isLifetime) return
+
+    // Antes, cualquier fallo de facturación dejaba la pantalla con "..." de precio
+    // indefinidamente y sin ninguna explicación.
+    val explanation = when (uiState.billingState) {
+        is BillingState.Unavailable -> R.string.premium_billing_unavailable
+        BillingState.NoProducts -> R.string.premium_no_products
+        else -> null
+    }
+    if (explanation != null) {
+        Text(
+            text = stringResource(id = explanation),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        return
+    }
+
+    if (!uiState.pricesLoaded) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(modifier = Modifier.size(28.dp))
+        }
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        uiState.subscriptionPrice?.let { price ->
+            Button(
+                onClick = onBuySubscription,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = stringResource(id = R.string.premium_option_3_months))
+                    Text(text = price, style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+
+        uiState.lifetimePrice?.let { price ->
+            OutlinedButton(
+                onClick = onBuyLifetime,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = stringResource(id = R.string.premium_option_lifetime))
+                    Text(text = price, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        TextButton(
+            onClick = onRestore,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text(text = stringResource(id = R.string.restore_purchases))
         }
     }
 }
