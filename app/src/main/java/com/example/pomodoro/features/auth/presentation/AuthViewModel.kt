@@ -72,8 +72,8 @@ class AuthViewModel @Inject constructor(
                 is AuthResult.Success -> null
                 // Cerrar el selector es una decisión del usuario, no un fallo que reportar.
                 AuthResult.Cancelled -> null
-                AuthResult.NoAccounts ->
-                    "No hay ninguna cuenta de Google en este dispositivo. Añade una en los ajustes de Android."
+                AuthResult.NoCredential ->
+                    "No se pudo obtener tu cuenta de Google. Revisa que tengas una añadida en el dispositivo e inténtalo de nuevo."
                 is AuthResult.Error -> result.message
             }
             transient.value = transient.value.copy(isWorking = false, error = message)

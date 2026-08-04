@@ -11,8 +11,14 @@ sealed interface AuthResult {
      */
     data object Cancelled : AuthResult
 
-    /** No hay ninguna cuenta de Google utilizable en el dispositivo. */
-    data object NoAccounts : AuthResult
+    /**
+     * Credential Manager no pudo entregar ninguna credencial.
+     *
+     * No significa necesariamente que falten cuentas en el dispositivo: también ocurre
+     * cuando Google rechaza la petición, por ejemplo si el proveedor está deshabilitado
+     * en Firebase. Por eso el mensaje al usuario no debe afirmar la causa.
+     */
+    data object NoCredential : AuthResult
 
     data class Error(val message: String) : AuthResult
 }

@@ -1,6 +1,7 @@
 package com.example.pomodoro.features.auth.data
 
 import android.content.Context
+import android.util.Log
 import com.example.pomodoro.R
 import com.example.pomodoro.features.auth.domain.AuthResult
 import com.example.pomodoro.features.auth.domain.AuthType
@@ -94,8 +95,12 @@ class AuthRepositoryImpl @Inject constructor(
         } catch (e: GetCredentialCancellationException) {
             return AuthResult.Cancelled
         } catch (e: NoCredentialException) {
-            return AuthResult.NoAccounts
+            // Play Services devuelve esto tanto si no hay cuentas como si rechaza la
+            // petición, y el motivo real solo aparece aquí.
+            Log.w(TAG, "Credential Manager no devolvió credencial", e)
+            return AuthResult.NoCredential
         } catch (e: Exception) {
+            Log.w(TAG, "Fallo al pedir credencial de Google", e)
             return AuthResult.Error(e.message ?: "No se pudo abrir el selector de cuentas")
         }
 
@@ -114,6 +119,9 @@ class AuthRepositoryImpl @Inject constructor(
         block()?.toAuthUser()?.let { AuthResult.Success(it) }
             ?: AuthResult.Error("Firebase no devolvió ningún usuario")
     } catch (e: Exception) {
+        // Sin esta traza, un proveedor deshabilitado en la consola solo se manifiesta
+        // como un mensaje fugaz en pantalla.
+        Log.w(TAG, "Fallo de autenticación en Firebase", e)
         AuthResult.Error(e.message ?: "Error de autenticación")
     }
 
@@ -128,4 +136,8 @@ class AuthRepositoryImpl @Inject constructor(
             else -> AuthType.NONE
         }
     )
+
+    private companion object {
+        const val TAG = "AuthRepository"
+    }
 }
