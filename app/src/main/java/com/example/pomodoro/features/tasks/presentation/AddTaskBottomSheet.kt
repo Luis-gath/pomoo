@@ -66,8 +66,8 @@ fun AddTaskBottomSheet(
     
     // Cursos/proyectos sugeridos
     val suggestedCourses = listOf(
-        "📚 Estudio", "💻 Programación", "📐 Matemáticas", 
-        "🔬 Física", "🎨 Diseño", "📝 Trabajo", "🏠 Personal"
+        "Estudio", "Programación", "Matemáticas",
+        "Física", "Diseño", "Trabajo", "Personal"
     )
     
     val createTaskData = {
@@ -99,7 +99,7 @@ fun AddTaskBottomSheet(
         ) {
             // Header
             Text(
-                text = "✨ Nueva Tarea",
+                text = "Nueva tarea",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -360,28 +360,28 @@ fun AddTaskBottomSheet(
                         CompactStepper(
                             value = focusMinutes,
                             onValueChange = { focusMinutes = it },
-                            label = "⏱️ Enfoque",
+                            label = "Enfoque",
                             minValue = 1,
                             maxValue = 90
                         )
                         CompactStepper(
                             value = shortBreakMinutes,
                             onValueChange = { shortBreakMinutes = it },
-                            label = "☕ Descanso corto",
+                            label = "Descanso corto",
                             minValue = 1,
                             maxValue = 30
                         )
                         CompactStepper(
                             value = longBreakMinutes,
                             onValueChange = { longBreakMinutes = it },
-                            label = "🌴 Descanso largo",
+                            label = "Descanso largo",
                             minValue = 1,
                             maxValue = 60
                         )
                         CompactStepper(
                             value = longBreakEvery,
                             onValueChange = { longBreakEvery = it },
-                            label = "🔄 Largo cada",
+                            label = "Largo cada",
                             suffix = "ciclos",
                             minValue = 2,
                             maxValue = 8
@@ -540,9 +540,9 @@ fun PrioritySelector(
     ) {
         TaskPriority.entries.forEach { priority ->
             val (color, label) = when (priority) {
-                TaskPriority.LOW -> Pair(Color(0xFF66BB6A), "🟢 Baja")
-                TaskPriority.MEDIUM -> Pair(Color(0xFFFFB74D), "🟡 Media")
-                TaskPriority.HIGH -> Pair(Color(0xFFEF5350), "🔴 Alta")
+                TaskPriority.LOW -> Pair(Color(0xFF66BB6A), "Baja")
+                TaskPriority.MEDIUM -> Pair(Color(0xFFFFB74D), "Media")
+                TaskPriority.HIGH -> Pair(Color(0xFFEF5350), "Alta")
             }
             
             FilterChip(

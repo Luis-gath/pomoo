@@ -36,6 +36,8 @@ class AreaRepositoryImpl @Inject constructor(
     override fun getItemsForArea(areaId: Int): Flow<List<Item>> =
         itemDao.getItemsForArea(areaId)
 
+    override fun getAllItems(): Flow<List<Item>> = itemDao.getAllItems()
+
     override fun getItemsForAreaByMark(areaId: Int, mark: ItemMark): Flow<List<Item>> =
         itemDao.getItemsForAreaByMark(areaId, mark)
 

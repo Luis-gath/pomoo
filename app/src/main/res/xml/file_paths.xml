@@ -10,4 +10,5 @@
 -->
 <paths>
     <files-path name="materiales_de_areas" path="areas/" />
+    <cache-path name="planes_compartidos" path="shared_plans/" />
 </paths>

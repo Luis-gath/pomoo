@@ -101,6 +101,8 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.zxing.core)
+    implementation(libs.google.code.scanner)
 
     // Glance Widget
     implementation(libs.androidx.glance.appwidget)

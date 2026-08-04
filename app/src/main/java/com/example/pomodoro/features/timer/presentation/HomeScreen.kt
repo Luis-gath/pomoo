@@ -1,52 +1,51 @@
 package com.example.pomodoro.features.timer.presentation
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.material3.Divider
 import android.app.Activity
 import android.view.WindowManager
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.pomodoro.R
-import com.example.pomodoro.core.audio.CustomTrack
 import com.example.pomodoro.features.timer.domain.PomodoroMode
+import com.example.pomodoro.shared.ui.theme.BackdropPanel
 import com.example.pomodoro.shared.ui.theme.LocalAppPalette
 import com.example.pomodoro.shared.ui.theme.OnBackdrop
 import com.example.pomodoro.shared.ui.theme.OnBackdropMuted
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -123,11 +122,18 @@ fun HomeScreen(
             )
         }
 
-        // Velo oscuro común a ambos casos: sin él el temporizador no se lee sobre el cielo.
+        // El degradado conserva detalle en la parte alta y refuerza el contraste justo donde
+        // están la tarea, las métricas y la navegación.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.6f))
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.48f),
+                        0.52f to Color.Black.copy(alpha = 0.60f),
+                        1f to Color.Black.copy(alpha = 0.76f)
+                    )
+                )
         )
 
         // Modo enfoque serio: mientras corre un bloque de foco la pantalla se queda solo con
@@ -157,23 +163,39 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(24.dp),
+                .padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // -----------------------------------------------------
-            // Header Row: Focus Control + Music
-            // -----------------------------------------------------
-            // El control de play/pausa vive ahora en el centro del cuadrante, así que la
-            // cabecera se queda solo con la música. El nombre del modo tampoco hace falta
-            // aquí: ya se lee dentro del temporizador.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 12.dp),
+                    .padding(bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Music Icon
+                Surface(
+                    shape = CircleShape,
+                    color = BackdropPanel,
+                    border = BorderStroke(1.dp, OnBackdrop.copy(alpha = 0.10f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            Modifier
+                                .size(7.dp)
+                                .background(modeColor, CircleShape)
+                        )
+                        Text(
+                            text = "Ciclo ${uiState.currentCycle}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = OnBackdrop
+                        )
+                    }
+                }
+
                 MusicHeaderIcon(
                     audioSettings = audioSettings,
                     allTracks = viewModel.getAllTracks(audioSettings.customTracks),
@@ -184,12 +206,8 @@ fun HomeScreen(
                     onImportClick = { viewModel.importAudio(it) }
                 )
             }
-            
-            // -----------------------------------------------------
-            // Active Task Header & Card (NEW)
-            // -----------------------------------------------------
-            // Only show label if we have a card or if we want to prompt
-            ActiveTaskHeaderLabel()
+
+            ActiveTaskHeaderLabel(modifier = Modifier.fillMaxWidth())
             
             ActiveTaskCard(
                 state = activeTaskUiState,
@@ -204,18 +222,16 @@ fun HomeScreen(
                 onClearTask = { viewModel.clearActiveTask() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 10.dp)
             )
 
-            // -----------------------------------------------------
-            // Center: Timer Ring (Wait, if card is big, ring needs space)
-            // -----------------------------------------------------
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
+                val gaugeSize = minOf(maxWidth * 0.88f, maxHeight).coerceAtMost(360.dp)
                 val timeText = "%02d:%02d".format(
                     (uiState.currentTimeMillis / 1000) / 60,
                     (uiState.currentTimeMillis / 1000) % 60
@@ -229,46 +245,133 @@ fun HomeScreen(
                     accent = modeColor,
                     isRunning = uiState.isRunning,
                     onToggleRunning = { viewModel.toggleTimer() },
-                    modifier = Modifier.fillMaxWidth(0.85f)
+                    modifier = Modifier.size(gaugeSize)
                 )
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Stats Mini
-            Text(
-                text = "Hoy: ${uiState.sessionsToday} | Total: ${uiState.sessionsTotal}",
-                style = MaterialTheme.typography.labelMedium,
-                color = OnBackdropMuted
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
 
-            // Navigation Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                 IconButton(onClick = { navController.navigate("tasks_list") }) {
-                    Icon(Icons.Default.Assignment, contentDescription = "Tareas", tint = OnBackdrop)
-                }
-                IconButton(onClick = { navController.navigate("areas") }) {
-                    Icon(Icons.Default.Folder, contentDescription = "Mis áreas", tint = OnBackdrop)
-                }
-                IconButton(onClick = { navController.navigate("stats") }) {
-                    Icon(Icons.Default.BarChart, contentDescription = "Estadísticas", tint = OnBackdrop)
-                }
-                IconButton(onClick = { navController.navigate("settings") }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = OnBackdrop)
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
+            SessionSummary(
+                today = uiState.sessionsToday,
+                total = uiState.sessionsTotal
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            HomeBottomNavigation(
+                onTasks = { navController.navigate("tasks_list") },
+                onAreas = { navController.navigate("areas") },
+                onStats = { navController.navigate("stats") },
+                onSettings = { navController.navigate("settings") }
+            )
         }
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = 16.dp, end = 16.dp, bottom = 82.dp)
+        )
+    }
+}
+
+@Composable
+private fun SessionSummary(today: Int, total: Int, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = BackdropPanel.copy(alpha = 0.76f),
+        border = BorderStroke(1.dp, OnBackdrop.copy(alpha = 0.08f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SummaryValue(value = today, label = "hoy")
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .height(14.dp)
+                    .background(OnBackdrop.copy(alpha = 0.16f))
+            )
+            SummaryValue(value = total, label = "en total")
+        }
+    }
+}
+
+@Composable
+private fun SummaryValue(value: Int, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            color = OnBackdrop,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = OnBackdropMuted
+        )
+    }
+}
+
+@Composable
+private fun HomeBottomNavigation(
+    onTasks: () -> Unit,
+    onAreas: () -> Unit,
+    onStats: () -> Unit,
+    onSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = BackdropPanel,
+        border = BorderStroke(1.dp, OnBackdrop.copy(alpha = 0.10f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HomeNavigationItem(Icons.Default.Assignment, "Tareas", onTasks, Modifier.weight(1f))
+            HomeNavigationItem(Icons.Default.Folder, "Áreas", onAreas, Modifier.weight(1f))
+            HomeNavigationItem(Icons.Default.BarChart, "Progreso", onStats, Modifier.weight(1f))
+            HomeNavigationItem(Icons.Default.Settings, "Ajustes", onSettings, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun HomeNavigationItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = OnBackdrop,
+            modifier = Modifier.size(21.dp)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = OnBackdropMuted,
+            fontSize = 10.sp,
+            maxLines = 1
         )
     }
 }

@@ -14,6 +14,7 @@ import com.example.pomodoro.core.database.TaskDao
 import com.example.pomodoro.core.database.AreaDao
 import com.example.pomodoro.core.database.ItemDao
 import com.example.pomodoro.core.database.MIGRATION_7_8
+import com.example.pomodoro.core.database.MIGRATION_8_9
 import com.example.pomodoro.core.database.TaskDatabase
 import com.example.pomodoro.core.feedback.SessionFeedback
 import com.example.pomodoro.core.focus.DoNotDisturbController
@@ -51,7 +52,7 @@ object DataModule {
             // A partir de la 7 (la actual) cualquier cambio EXIGE una Migration explícita:
             // sin ella Room lanza excepción en vez de borrar los datos del usuario.
             .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)
-            .addMigrations(MIGRATION_7_8)
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9)
             .build()
 
     @Provides

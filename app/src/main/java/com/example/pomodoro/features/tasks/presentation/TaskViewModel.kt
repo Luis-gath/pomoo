@@ -5,8 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskStatus
 import com.example.pomodoro.features.tasks.data.TaskRepository
+import com.example.pomodoro.features.tasks.domain.ApplyStudyHabitUseCase
 import com.example.pomodoro.features.tasks.domain.ApplyWeeklyScheduleUseCase
 import com.example.pomodoro.features.tasks.domain.CreateTaskUseCase
+import com.example.pomodoro.features.tasks.domain.ScheduleEditScope
+import com.example.pomodoro.features.tasks.domain.ScheduleRescheduler
+import com.example.pomodoro.features.tasks.domain.ScheduleSeriesEditor
+import com.example.pomodoro.features.tasks.domain.StudyHabitPlan
 import com.example.pomodoro.features.tasks.domain.WeeklyScheduleTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -76,7 +81,8 @@ enum class DashboardTab {
 class TaskViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val createTaskUseCase: CreateTaskUseCase,
-    private val applyWeeklySchedule: ApplyWeeklyScheduleUseCase
+    private val applyWeeklySchedule: ApplyWeeklyScheduleUseCase,
+    private val applyStudyHabit: ApplyStudyHabitUseCase
 ) : ViewModel() {
 
     /** Resultado de aplicar una rutina semanal, para avisar en pantalla. */
@@ -86,7 +92,12 @@ class TaskViewModel @Inject constructor(
     private val _applyingSchedule = MutableStateFlow(false)
     val applyingSchedule: StateFlow<Boolean> = _applyingSchedule.asStateFlow()
 
+    private val _scheduleEditMessage = MutableStateFlow<String?>(null)
+    val scheduleEditMessage: StateFlow<String?> = _scheduleEditMessage.asStateFlow()
+
     fun consumeScheduleMessage() { _scheduleMessage.value = null }
+
+    fun consumeScheduleEditMessage() { _scheduleEditMessage.value = null }
 
     fun applySchedule(
         template: WeeklyScheduleTemplate,
@@ -109,6 +120,24 @@ class TaskViewModel @Inject constructor(
                     "${result.created} sesiones creadas para ${result.weeks} semana(s)"
             } catch (e: Exception) {
                 _scheduleMessage.value = "No se pudo aplicar el horario: ${e.message}"
+            } finally {
+                _applyingSchedule.value = false
+            }
+        }
+    }
+
+    fun applyHabit(plan: StudyHabitPlan) {
+        if (_applyingSchedule.value) return
+        _applyingSchedule.value = true
+
+        viewModelScope.launch {
+            try {
+                val result = applyStudyHabit(plan)
+                val weeklyTime = formatMinutes(result.focusMinutesPerWeek)
+                _scheduleMessage.value =
+                    "${result.created} sesiones creadas · $weeklyTime de enfoque por semana"
+            } catch (e: Exception) {
+                _scheduleMessage.value = "No se pudo crear el hábito: ${e.message}"
             } finally {
                 _applyingSchedule.value = false
             }
@@ -248,10 +277,33 @@ class TaskViewModel @Inject constructor(
      * Persiste la tarea del editor y devuelve la versión guardada (con id asignado
      * cuando es nueva), para que la pantalla pueda encadenar acciones como "iniciar".
      */
-    fun saveTask(task: TaskEntity, onSaved: ((TaskEntity) -> Unit)? = null) {
+    fun saveTask(
+        task: TaskEntity,
+        scope: ScheduleEditScope = ScheduleEditScope.THIS_DAY,
+        onSaved: ((TaskEntity) -> Unit)? = null
+    ) {
         viewModelScope.launch {
             try {
-                val savedId = repository.insertOrUpdateTask(task)
+                val original = if (task.id != 0) repository.getTaskById(task.id) else null
+                val seriesUpdates = if (
+                    scope == ScheduleEditScope.ALL_WEEKS &&
+                    original?.scheduleSeriesId != null
+                ) {
+                    ScheduleSeriesEditor.applyEdit(
+                        selectedOriginal = original,
+                        editedTask = task,
+                        allTasks = _dashboardState.value.allTasks
+                    )
+                } else {
+                    emptyList()
+                }
+
+                val savedId = if (seriesUpdates.isNotEmpty()) {
+                    seriesUpdates.forEach { repository.insertOrUpdateTask(it) }
+                    task.id.toLong()
+                } else {
+                    repository.insertOrUpdateTask(task)
+                }
                 val savedTask = repository.getTaskById(savedId.toInt())
                     ?: task.copy(id = savedId.toInt())
                 onSaved?.invoke(savedTask)
@@ -339,5 +391,41 @@ class TaskViewModel @Inject constructor(
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         return calendar.timeInMillis
+    }
+
+    fun rescheduleTask(
+        task: TaskEntity,
+        newStartMillis: Long,
+        scope: ScheduleEditScope
+    ) {
+        viewModelScope.launch {
+            try {
+                val updates = ScheduleRescheduler.reschedule(
+                    selectedTask = task,
+                    allTasks = _dashboardState.value.allTasks,
+                    newStartMillis = newStartMillis,
+                    scope = scope
+                )
+                updates.forEach { repository.insertOrUpdateTask(it) }
+                _scheduleEditMessage.value = when {
+                    updates.isEmpty() -> "No se encontró una fecha programada para esta tarea"
+                    scope == ScheduleEditScope.ALL_WEEKS && updates.size > 1 ->
+                        "Horario actualizado en ${updates.size} semanas"
+                    else -> "Horario actualizado para este día"
+                }
+            } catch (e: Exception) {
+                _scheduleEditMessage.value = "No se pudo actualizar el horario: ${e.message}"
+            }
+        }
+    }
+
+    private fun formatMinutes(minutes: Int): String {
+        val hours = minutes / 60
+        val rest = minutes % 60
+        return when {
+            hours == 0 -> "$rest min"
+            rest == 0 -> "$hours h"
+            else -> "$hours h $rest min"
+        }
     }
 }

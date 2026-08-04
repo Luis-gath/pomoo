@@ -123,11 +123,21 @@ fun TaskDetailScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
-                    Text(
-                        text = "🍅 Progreso Pomodoro",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Progreso Pomodoro",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     
                     Spacer(Modifier.height(16.dp))
                     
@@ -153,10 +163,11 @@ fun TaskDetailScreen(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     if (isCompleted) {
-                                        Text(
-                                            "✓",
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            fontWeight = FontWeight.Bold
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = "Completado",
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(17.dp)
                                         )
                                     } else {
                                         Text(
@@ -209,7 +220,7 @@ fun TaskDetailScreen(
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (task.completedPomodoros > 0) "Continuar Tarea" else "Iniciar Tarea",
+                        text = if (task.completedPomodoros > 0) "Continuar tarea" else "Iniciar tarea",
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
@@ -257,11 +268,22 @@ fun TaskDetailScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        Text(
-                            text = "📝 Notas",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Notes,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Notas",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = task.notes,
@@ -283,11 +305,22 @@ fun TaskDetailScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "⚙️ Configuración Pomodoro",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Configuración Pomodoro",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     
                     InfoRow("Enfoque", "${task.focusMinutes} min")
                     InfoRow("Descanso corto", "${task.shortBreakMinutes} min")

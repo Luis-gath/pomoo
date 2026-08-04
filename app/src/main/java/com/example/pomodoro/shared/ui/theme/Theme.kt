@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -26,23 +27,56 @@ fun PomodoroTheme(
     val colorScheme = if (darkTheme) {
         darkColorScheme(
             primary = palette.primary,
+            onPrimary = Ink,
+            primaryContainer = lerp(DarkSurfaceVariant, palette.primary, 0.30f),
+            onPrimaryContainer = TextPrimary,
             secondary = palette.secondary,
-            tertiary = palette.focus,
+            onSecondary = Ink,
+            secondaryContainer = lerp(DarkSurfaceVariant, palette.secondary, 0.26f),
+            onSecondaryContainer = TextPrimary,
+            tertiary = palette.longBreak,
+            onTertiary = Ink,
+            tertiaryContainer = lerp(DarkSurfaceVariant, palette.longBreak, 0.26f),
+            onTertiaryContainer = TextPrimary,
             background = DarkBackground,
-            surface = SurfaceColor,
-            onPrimary = DarkBackground,
-            onSecondary = DarkBackground,
-            onTertiary = TextPrimary,
+            surface = DarkSurface,
+            surfaceVariant = DarkSurfaceVariant,
             onBackground = TextPrimary,
-            onSurface = TextPrimary
+            onSurface = TextPrimary,
+            onSurfaceVariant = TextSecondary,
+            outline = DarkOutline,
+            outlineVariant = DarkOutlineVariant,
+            error = Color(0xFFFFB4AB),
+            errorContainer = Color(0xFF5B211D),
+            onError = Color(0xFF3A0907),
+            onErrorContainer = Color(0xFFFFDAD5)
         )
     } else {
         lightColorScheme(
             primary = palette.primary,
+            onPrimary = Ink,
+            primaryContainer = lerp(LightSurfaceVariant, palette.primary, 0.24f),
+            onPrimaryContainer = Ink,
             secondary = palette.secondary,
-            tertiary = palette.focus,
-            onPrimary = Color.White,
-            onSecondary = Color.White
+            onSecondary = Ink,
+            secondaryContainer = lerp(LightSurfaceVariant, palette.secondary, 0.22f),
+            onSecondaryContainer = Ink,
+            tertiary = palette.longBreak,
+            onTertiary = Ink,
+            tertiaryContainer = lerp(LightSurfaceVariant, palette.longBreak, 0.22f),
+            onTertiaryContainer = Ink,
+            background = LightBackground,
+            surface = LightSurface,
+            surfaceVariant = LightSurfaceVariant,
+            onBackground = Ink,
+            onSurface = Ink,
+            onSurfaceVariant = InkMuted,
+            outline = LightOutline,
+            outlineVariant = LightOutlineVariant,
+            error = Color(0xFFBA1A1A),
+            errorContainer = Color(0xFFFFDAD6),
+            onError = Color.White,
+            onErrorContainer = Color(0xFF410002)
         )
     }
 
@@ -70,6 +104,7 @@ fun PomodoroTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,
+            shapes = AppShapes,
             content = content
         )
     }

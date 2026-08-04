@@ -2,6 +2,7 @@ package com.example.pomodoro.features.tasks.domain
 
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskPriority
+import com.example.pomodoro.features.tasks.data.RepeatType
 import com.example.pomodoro.features.tasks.data.TaskStatus
 import com.example.pomodoro.features.tasks.data.TaskRepository
 import javax.inject.Inject
@@ -27,7 +28,9 @@ class CreateTaskUseCase @Inject constructor(
         longBreakMinutes: Int = 15,
         longBreakEvery: Int = 4,
         includeFinalBreak: Boolean = false,
-        isNotificationEnabled: Boolean = false
+        isNotificationEnabled: Boolean = false,
+        repeatType: RepeatType = RepeatType.NONE,
+        scheduleSeriesId: String? = null
     ): TaskEntity? {
         val cleanTitle = title.trim()
         require(cleanTitle.isNotEmpty()) { "El título de la tarea no puede estar vacío" }
@@ -64,6 +67,8 @@ class CreateTaskUseCase @Inject constructor(
             reminderMinutesBefore = null,
             priority = priority,
             status = TaskStatus.TODO,
+            repeatType = repeatType,
+            scheduleSeriesId = scheduleSeriesId,
             totalPomodoros = safeTotalPomodoros,
             completedPomodoros = 0,
             focusMinutes = safeFocusMinutes,

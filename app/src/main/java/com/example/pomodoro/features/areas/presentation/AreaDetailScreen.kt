@@ -5,15 +5,23 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,6 +40,7 @@ fun AreaDetailScreen(
     viewModel: AreaDetailViewModel = hiltViewModel()
 ) {
     val area by viewModel.area.collectAsState()
+    val allItems by viewModel.allItems.collectAsState()
     val items by viewModel.items.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val message by viewModel.message.collectAsState()
@@ -76,7 +85,22 @@ fun AreaDetailScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(area?.name ?: "Área", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text(area?.name ?: "Área", fontWeight = FontWeight.Bold)
+                        area?.let { current ->
+                            Text(
+                                text = when (current.type) {
+                                    com.example.pomodoro.features.areas.data.AreaType.CURSO -> "Curso"
+                                    com.example.pomodoro.features.areas.data.AreaType.HABILIDAD -> "Habilidad"
+                                    com.example.pomodoro.features.areas.data.AreaType.PROYECTO -> "Proyecto"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
@@ -141,8 +165,18 @@ fun AreaDetailScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            AreaDetailSummary(
+                total = allItems.size,
+                important = allItems.count { it.mark == ItemMark.IMPORTANTE },
+                deliveries = allItems.count { it.mark == ItemMark.ENTREGA },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AreaFilter.entries.forEach { option ->
@@ -152,9 +186,11 @@ fun AreaDetailScreen(
                         label = {
                             Text(
                                 when (option) {
-                                    AreaFilter.TODO -> "Todo"
-                                    AreaFilter.IMPORTANTES -> "Importantes"
-                                    AreaFilter.ENTREGAS -> "Entregas"
+                                    AreaFilter.TODO -> "Todo (${allItems.size})"
+                                    AreaFilter.IMPORTANTES ->
+                                        "Importantes (${allItems.count { it.mark == ItemMark.IMPORTANTE }})"
+                                    AreaFilter.ENTREGAS ->
+                                        "Entregas (${allItems.count { it.mark == ItemMark.ENTREGA }})"
                                 }
                             )
                         }
@@ -163,24 +199,11 @@ fun AreaDetailScreen(
             }
 
             if (items.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Nada por aquí todavía", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Añade archivos con el botón, o comparte cualquier cosa desde otra " +
-                            "app y elige esta área.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                EmptyAreaContent(filter = filter, hasAnyItems = allItems.isNotEmpty())
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(items, key = { it.id }) { item ->
                         ItemRow(
@@ -228,6 +251,117 @@ fun AreaDetailScreen(
 
 private enum class TextEntry { LINK, NOTE }
 
+@Composable
+private fun AreaDetailSummary(
+    total: Int,
+    important: Int,
+    deliveries: Int,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            DetailMetric(total, "Materiales", Icons.Default.InsertDriveFile, Modifier.weight(1f))
+            DetailMetric(important, "Importantes", Icons.Default.Star, Modifier.weight(1f))
+            DetailMetric(
+                deliveries,
+                "Entregas",
+                Icons.Default.AssignmentLate,
+                Modifier.weight(1f),
+                alert = deliveries > 0
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailMetric(
+    value: Int,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    alert: Boolean = false
+) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = if (alert) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                value.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (alert) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
+        )
+    }
+}
+
+@Composable
+private fun EmptyAreaContent(filter: AreaFilter, hasAnyItems: Boolean) {
+    val filtered = hasAnyItems && filter != AreaFilter.TODO
+    val title = if (filtered) {
+        when (filter) {
+            AreaFilter.IMPORTANTES -> "No hay material importante"
+            AreaFilter.ENTREGAS -> "No hay entregas"
+            AreaFilter.TODO -> "Nada por aquí todavía"
+        }
+    } else {
+        "Añade tu primer material"
+    }
+    val description = if (filtered) {
+        "Cambia el filtro para consultar el resto del material."
+    } else {
+        "Añade archivos, enlaces o notas; también puedes compartir contenido desde otra aplicación."
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Icon(
+                imageVector = if (filtered) Icons.Default.FilterAltOff else Icons.Default.NoteAdd,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(18.dp).size(30.dp)
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(7.dp))
+        Text(
+            description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ItemRow(
@@ -239,47 +373,66 @@ private fun ItemRow(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
-    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+    Card(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = when (item.kind) {
-                    ItemKind.FOTO -> Icons.Default.Image
-                    ItemKind.PDF -> Icons.Default.PictureAsPdf
-                    ItemKind.VIDEO -> Icons.Default.Movie
-                    ItemKind.AUDIO -> Icons.Default.Audiotrack
-                    ItemKind.ENLACE -> Icons.Default.Link
-                    ItemKind.NOTA -> Icons.Default.Notes
-                    ItemKind.GENERADO -> Icons.Default.AutoAwesome
-                    ItemKind.ARCHIVO -> Icons.Default.InsertDriveFile
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            ItemPreview(item = item, modifier = Modifier.size(54.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(item.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2
+                )
                 Text(
                     buildString {
-                        append(dateFormat.format(Date(item.createdAt)))
+                        append(formatItemDate(item.createdAt))
                         item.sizeBytes?.let { append(" · ${formatSize(it)}") }
-                        if (item.isExternalReference) append(" · enlazado")
+                        if (item.isExternalReference) append(" · enlace externo")
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-
-            if (item.mark != ItemMark.NINGUNA) {
-                AssistChip(
-                    onClick = onToggleMark,
-                    label = {
-                        Text(if (item.mark == ItemMark.IMPORTANTE) "Importante" else "Entrega")
+                if (item.mark != ItemMark.NINGUNA) {
+                    Spacer(Modifier.height(5.dp))
+                    val markColor = if (item.mark == ItemMark.ENTREGA) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.tertiary
                     }
-                )
+                    Row(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(onClick = onToggleMark)
+                            .padding(horizontal = 2.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            if (item.mark == ItemMark.IMPORTANTE) Icons.Default.Star
+                            else Icons.Default.AssignmentLate,
+                            contentDescription = null,
+                            tint = markColor,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            if (item.mark == ItemMark.IMPORTANTE) "Importante" else "Entrega",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = markColor
+                        )
+                    }
+                }
             }
 
             Box {
@@ -294,16 +447,31 @@ private fun ItemRow(
                     )
                     DropdownMenuItem(
                         text = { Text("Cambiar marca") },
+                        leadingIcon = { Icon(Icons.Default.Label, null) },
                         onClick = { menuOpen = false; onToggleMark() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Eliminar") },
+                        text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                        },
                         onClick = { menuOpen = false; onDelete() }
                     )
                 }
             }
         }
     }
+}
+
+internal fun itemKindIcon(kind: ItemKind) = when (kind) {
+    ItemKind.FOTO -> Icons.Default.Image
+    ItemKind.PDF -> Icons.Default.PictureAsPdf
+    ItemKind.VIDEO -> Icons.Default.Movie
+    ItemKind.AUDIO -> Icons.Default.Audiotrack
+    ItemKind.ENLACE -> Icons.Default.Link
+    ItemKind.NOTA -> Icons.Default.Notes
+    ItemKind.GENERADO -> Icons.Default.AutoAwesome
+    ItemKind.ARCHIVO -> Icons.Default.InsertDriveFile
 }
 
 @Composable
@@ -337,7 +505,8 @@ private fun TextEntryDialog(
     )
 }
 
-private val dateFormat = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+private fun formatItemDate(timestamp: Long): String =
+    SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(timestamp))
 
 private fun formatSize(bytes: Long): String = when {
     bytes >= 1_073_741_824 -> "%.1f GB".format(bytes / 1_073_741_824.0)

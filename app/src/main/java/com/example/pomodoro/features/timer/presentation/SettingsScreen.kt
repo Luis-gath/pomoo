@@ -1,7 +1,15 @@
 package com.example.pomodoro.features.timer.presentation
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -9,25 +17,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.pomodoro.core.focus.DoNotDisturbController
 import com.example.pomodoro.shared.ui.theme.AppTone
 import com.example.pomodoro.shared.ui.theme.palette
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,11 +39,9 @@ fun SettingsScreen(
     navController: NavController,
     viewModel: PomodoroViewModel = hiltViewModel()
 ) {
-    // Los ajustes se leen y escriben a través del ViewModel, no del DataStore directamente.
     val settings by viewModel.settings.collectAsState()
 
-    // El permiso de No molestar se comprueba al volver a la pantalla, porque se concede
-    // fuera de la app y no hay forma de que nos avise cuando cambia.
+    // El permiso de No molestar se concede fuera de la app; se vuelve a consultar al regresar.
     val context = LocalContext.current
     val dnd = remember { DoNotDisturbController(context) }
     val dndSettingsIntent = remember { dnd.accessSettingsIntent() }
@@ -53,7 +55,6 @@ fun SettingsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Errores al cambiar el fondo: antes se tragaban en silencio.
     val errorMessage by viewModel.errorMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(errorMessage) {
@@ -65,207 +66,367 @@ fun SettingsScreen(
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            viewModel.updateBackground(uri)
-        }
+        onResult = viewModel::updateBackground
     )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Ajustes") },
+                title = { Text("Ajustes", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
         ) {
-            Text("Duraciones (minutos)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            SliderSetting("Enfoque", settings.focusDurationMinutes, 1f, 90f) {
-                viewModel.updateSettings(settings.copy(focusDurationMinutes = it))
-            }
-            SliderSetting("Descanso Corto", settings.shortBreakDurationMinutes, 1f, 30f) {
-                viewModel.updateSettings(settings.copy(shortBreakDurationMinutes = it))
-            }
-            SliderSetting("Descanso Largo", settings.longBreakDurationMinutes, 1f, 60f) {
-                viewModel.updateSettings(settings.copy(longBreakDurationMinutes = it))
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Ciclos", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            SliderSetting("Descanso largo cada N ciclos", settings.longBreakEveryNCycles, 2f, 8f) {
-                viewModel.updateSettings(settings.copy(longBreakEveryNCycles = it))
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Modo enfoque serio", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-
-            SwitchSetting("Pantalla despejada durante el foco", settings.focusModeEnabled) {
-                viewModel.updateSettings(settings.copy(focusModeEnabled = it))
-            }
-            Text(
-                "Durante los bloques de enfoque solo se ve el temporizador. Los controles " +
-                    "aparecen al tocar la pantalla.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (settings.focusModeEnabled) {
-                Spacer(modifier = Modifier.height(8.dp))
-                SwitchSetting("Silenciar el móvil (No molestar)", settings.blockNotificationsInFocus) {
-                    viewModel.updateSettings(settings.copy(blockNotificationsInFocus = it))
-                }
-
-                // Bloquear avisos de otras apps exige un permiso que solo se concede a mano
-                // en una pantalla del sistema: no se puede pedir con un diálogo normal.
-                if (settings.blockNotificationsInFocus && !dndGranted) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Falta conceder el acceso a No molestar. Sin él, el modo enfoque " +
-                            "funciona igual pero no silencia las demás aplicaciones.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    TextButton(onClick = { context.startActivity(dndSettingsIntent) }) {
-                        Text("Conceder acceso")
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Tono de la interfaz", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            AppTone.entries.forEach { tone ->
-                val selected = settings.toneName == tone.name
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .selectable(
-                            selected = selected,
-                            onClick = { viewModel.updateSettings(settings.copy(toneName = tone.name)) }
-                        )
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .widthIn(max = 720.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                SettingsSection(
+                    title = "Temporizador",
+                    description = "Define la duración de cada fase y el ritmo de tus ciclos."
                 ) {
-                    RadioButton(
-                        selected = selected,
-                        onClick = { viewModel.updateSettings(settings.copy(toneName = tone.name)) }
+                    SliderSetting(
+                        label = "Enfoque",
+                        value = settings.focusDurationMinutes,
+                        min = 1f,
+                        max = 90f
+                    ) { viewModel.updateSettings(settings.copy(focusDurationMinutes = it)) }
+
+                    SettingDivider()
+
+                    SliderSetting(
+                        label = "Descanso corto",
+                        value = settings.shortBreakDurationMinutes,
+                        min = 1f,
+                        max = 30f
+                    ) { viewModel.updateSettings(settings.copy(shortBreakDurationMinutes = it)) }
+
+                    SettingDivider()
+
+                    SliderSetting(
+                        label = "Descanso largo",
+                        value = settings.longBreakDurationMinutes,
+                        min = 1f,
+                        max = 60f
+                    ) { viewModel.updateSettings(settings.copy(longBreakDurationMinutes = it)) }
+
+                    SettingDivider()
+
+                    SliderSetting(
+                        label = "Descanso largo cada",
+                        value = settings.longBreakEveryNCycles,
+                        min = 2f,
+                        max = 8f,
+                        valueLabel = { "$it ciclos" }
+                    ) { viewModel.updateSettings(settings.copy(longBreakEveryNCycles = it)) }
+                }
+
+                SettingsSection(
+                    title = "Enfoque serio",
+                    description = "Reduce las distracciones mientras el temporizador está en marcha."
+                ) {
+                    SwitchSetting(
+                        label = "Pantalla despejada durante el foco",
+                        checked = settings.focusModeEnabled
+                    ) { viewModel.updateSettings(settings.copy(focusModeEnabled = it)) }
+
+                    Text(
+                        "Durante el enfoque solo se ve el temporizador. Toca la pantalla para mostrar los controles.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.width(4.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(tone.label)
+
+                    if (settings.focusModeEnabled) {
+                        SettingDivider()
+
+                        SwitchSetting(
+                            label = "Silenciar el móvil",
+                            checked = settings.blockNotificationsInFocus
+                        ) { viewModel.updateSettings(settings.copy(blockNotificationsInFocus = it)) }
+
                         Text(
-                            tone.description,
+                            "Activa No molestar mientras dura un bloque de enfoque.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    // Muestra de los tres colores del tono.
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(
-                            tone.palette.focus,
-                            tone.palette.shortBreak,
-                            tone.palette.longBreak
-                        ).forEach { swatch ->
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(swatch)
-                            )
+
+                        if (settings.blockNotificationsInFocus && !dndGranted) {
+                            Spacer(Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Text(
+                                        "Falta acceso a No molestar",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Sin este permiso, el modo funciona pero no silencia otras aplicaciones.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    TextButton(onClick = { context.startActivity(dndSettingsIntent) }) {
+                                        Text("Conceder acceso")
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Fondo (Background)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = { 
-                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }) {
-                    Text("Elegir Imagen")
-                }
-                
-                if (settings.backgroundUri != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(onClick = { viewModel.updateBackground(null) }) {
-                        Text("Restaurar predeterminado")
+                SettingsSection(
+                    title = "Tono de la interfaz",
+                    description = "El acento se aplica al temporizador y al resto de la app."
+                ) {
+                    AppTone.entries.forEachIndexed { index, tone ->
+                        ToneOption(
+                            tone = tone,
+                            selected = settings.toneName == tone.name,
+                            onClick = {
+                                viewModel.updateSettings(settings.copy(toneName = tone.name))
+                            }
+                        )
+                        if (index != AppTone.entries.lastIndex) Spacer(Modifier.height(8.dp))
                     }
                 }
-            }
-            
-            if (settings.backgroundUri != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Vista previa (min):", style = MaterialTheme.typography.bodySmall)
-                AsyncImage(
-                    model = settings.backgroundUri,
-                    contentDescription = "Preview",
-                    modifier = Modifier.size(100.dp).padding(top = 4.dp)
-                )
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Opciones", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            
-            SwitchSetting("Auto-iniciar siguiente fase", settings.autoStartNext) {
-                viewModel.updateSettings(settings.copy(autoStartNext = it))
-            }
-            SwitchSetting("Sonido", settings.soundEnabled) {
-                viewModel.updateSettings(settings.copy(soundEnabled = it))
-            }
-            SwitchSetting("Vibración", settings.vibrationEnabled) {
-                viewModel.updateSettings(settings.copy(vibrationEnabled = it))
-            }
-            SwitchSetting("Mantener pantalla encendida", settings.keepScreenOn) {
-                viewModel.updateSettings(settings.copy(keepScreenOn = it))
+                SettingsSection(
+                    title = "Fondo",
+                    description = "Personaliza la imagen que acompaña al temporizador."
+                ) {
+                    if (settings.backgroundUri != null) {
+                        AsyncImage(
+                            model = settings.backgroundUri,
+                            contentDescription = "Vista previa del fondo",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    Button(
+                        onClick = {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (settings.backgroundUri == null) "Elegir imagen" else "Cambiar imagen")
+                    }
+
+                    if (settings.backgroundUri != null) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.updateBackground(null) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Restaurar fondo predeterminado")
+                        }
+                    }
+                }
+
+                SettingsSection(title = "Comportamiento") {
+                    SwitchSetting("Iniciar automáticamente la siguiente fase", settings.autoStartNext) {
+                        viewModel.updateSettings(settings.copy(autoStartNext = it))
+                    }
+                    SettingDivider()
+                    SwitchSetting("Sonido al terminar", settings.soundEnabled) {
+                        viewModel.updateSettings(settings.copy(soundEnabled = it))
+                    }
+                    SettingDivider()
+                    SwitchSetting("Vibración al terminar", settings.vibrationEnabled) {
+                        viewModel.updateSettings(settings.copy(vibrationEnabled = it))
+                    }
+                    SettingDivider()
+                    SwitchSetting("Mantener la pantalla encendida", settings.keepScreenOn) {
+                        viewModel.updateSettings(settings.copy(keepScreenOn = it))
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
 }
 
 @Composable
-fun SliderSetting(label: String, value: Int, min: Float, max: Float, onValueChange: (Int) -> Unit) {
+private fun SettingsSection(
+    title: String,
+    description: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        if (description != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(Modifier.height(9.dp))
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 1.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingDivider() {
+    Divider(
+        modifier = Modifier.padding(vertical = 8.dp),
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
+}
+
+@Composable
+fun SliderSetting(
+    label: String,
+    value: Int,
+    min: Float,
+    max: Float,
+    valueLabel: (Int) -> String = { "$it min" },
+    onValueChange: (Int) -> Unit
+) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(label)
-            Text(value.toString())
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text(
+                    text = valueLabel(value),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
         }
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = min..max,
-            steps = (max - min).toInt() - 1 // Discrete steps
+            steps = (max - min).toInt() - 1
         )
     }
 }
 
 @Composable
-fun SwitchSetting(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun SwitchSetting(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun ToneOption(
+    tone: AppTone,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+            else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(selected = selected, onClick = null)
+            Spacer(Modifier.width(6.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tone.label, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    tone.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    tone.palette.focus,
+                    tone.palette.shortBreak,
+                    tone.palette.longBreak
+                ).forEach { swatch ->
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(swatch)
+                    )
+                }
+            }
+        }
     }
 }

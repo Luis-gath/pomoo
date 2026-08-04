@@ -43,8 +43,11 @@ class AreaDetailViewModel @Inject constructor(
     val area: StateFlow<Area?> = repository.getAreaByIdFlow(areaId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val allItems: StateFlow<List<Item>> = repository.getItemsForArea(areaId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val items: StateFlow<List<Item>> =
-        combine(repository.getItemsForArea(areaId), _filter) { all, filter ->
+        combine(allItems, _filter) { all, filter ->
             when (filter) {
                 AreaFilter.TODO -> all
                 AreaFilter.IMPORTANTES -> all.filter { it.mark == ItemMark.IMPORTANTE }

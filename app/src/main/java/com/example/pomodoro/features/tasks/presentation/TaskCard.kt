@@ -3,6 +3,7 @@ package com.example.pomodoro.features.tasks.presentation
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskPriority
@@ -37,8 +39,8 @@ fun TaskCard(
     onEditClick: () -> Unit,
     onDuplicateClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onMoveStatus: ((TaskStatus) -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onMoveStatus: ((TaskStatus) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showMoveMenu by remember { mutableStateOf(false) }
@@ -51,8 +53,8 @@ fun TaskCard(
     
     val cardColor by animateColorAsState(
         targetValue = when (task.status) {
-            TaskStatus.DONE -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-            TaskStatus.DOING -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+            TaskStatus.DONE -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f)
+            TaskStatus.DOING -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f)
             TaskStatus.TODO -> MaterialTheme.colorScheme.surface
         },
         animationSpec = tween(300),
@@ -63,7 +65,15 @@ fun TaskCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            if (task.status == TaskStatus.DOING) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            }
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -84,7 +94,8 @@ fun TaskCard(
                         color = if (task.isDone) 
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) 
                         else 
-                            MaterialTheme.colorScheme.onSurface
+                            MaterialTheme.colorScheme.onSurface,
+                        textDecoration = if (task.isDone) TextDecoration.LineThrough else null
                     )
                     
                     // Curso/Proyecto
@@ -127,18 +138,21 @@ fun TaskCard(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("✏️ Editar") },
+                            text = { Text("Editar") },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                             onClick = { showMenu = false; onEditClick() }
                         )
                         DropdownMenuItem(
-                            text = { Text("📋 Duplicar") },
+                            text = { Text("Duplicar") },
+                            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
                             onClick = { showMenu = false; onDuplicateClick() }
                         )
                         
                         // Opción Mover a... (solo si onMoveStatus está disponible)
                         if (onMoveStatus != null) {
                             DropdownMenuItem(
-                                text = { Text("➡️ Mover a...") },
+                                text = { Text("Mover a…") },
+                                leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) },
                                 onClick = { 
                                     showMenu = false
                                     showMoveMenu = true
@@ -146,9 +160,16 @@ fun TaskCard(
                             )
                         }
                         
-                        Divider()
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant)
                         DropdownMenuItem(
-                            text = { Text("🗑️ Eliminar", color = MaterialTheme.colorScheme.error) },
+                            text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
                             onClick = { showMenu = false; onDeleteClick() }
                         )
                     }
@@ -198,14 +219,27 @@ fun TaskCard(
                 
                 // Fecha
                 task.dueDateTime?.let { dueDate ->
-                    Text(
-                        text = formatDate(dueDate),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (dueDate < System.currentTimeMillis() && !task.isDone)
-                            MaterialTheme.colorScheme.error
-                        else
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
+                    val dateColor = if (dueDate < System.currentTimeMillis() && !task.isDone) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = dateColor,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = formatDate(dueDate),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = dateColor
+                        )
+                    }
                 }
             }
             
@@ -216,8 +250,12 @@ fun TaskCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icono y contador
-                Text("🍅", style = MaterialTheme.typography.bodyMedium)
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = "${task.completedPomodoros}/${task.totalPomodoros}",

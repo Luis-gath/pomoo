@@ -57,3 +57,10 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         db.execSQL("ALTER TABLE `tasks` ADD COLUMN `areaId` INTEGER")
     }
 }
+
+/** Añade el vínculo seguro entre las sesiones que pertenecen al mismo horario. */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `tasks` ADD COLUMN `scheduleSeriesId` TEXT")
+    }
+}

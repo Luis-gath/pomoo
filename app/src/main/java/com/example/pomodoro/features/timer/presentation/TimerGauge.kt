@@ -4,9 +4,11 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -55,7 +57,7 @@ private const val START_ANGLE = -90f
  * 1. **No hay estela.** No se dibuja ningún aro de fondo que marque el recorrido completo:
  *    solo existe el arco de lo que queda. Lo ya consumido desaparece, y de la esfera solo
  *    permanece una graduación tenue que da la referencia sin ensuciar la imagen de fondo.
- * 2. **Nitidez en lugar de resplandor.** Extremos rectos, marcas finas y un halo oscuro
+ * 2. **Nitidez en lugar de resplandor.** Extremos redondeados, marcas finas y un halo oscuro
  *    detrás del cuadrante. Ese halo es lo que lo hace legible sobre cualquier fotografía
  *    sin tener que oscurecer la pantalla entera.
  *
@@ -87,13 +89,19 @@ fun TimerGauge(
     val density = LocalDensity.current
     val strokePx = with(density) { strokeWidth.toPx() }
 
-    Box(modifier = modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
+    BoxWithConstraints(modifier = modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
+        val timeFontSize = when {
+            maxWidth < 180.dp -> 40.sp
+            maxWidth < 240.dp -> 50.sp
+            else -> 58.sp
+        }
+
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val outer = size.minDimension / 2f
             val radius = outer - strokePx * 2.2f
 
-            drawBackdropHalo(center, outer)
+            drawUniformBackdrop(center, outer)
             drawGraduation(center, radius, strokePx, animated, accent)
             drawRemainingArc(center, radius, strokePx, animated, accent)
         }
@@ -110,7 +118,7 @@ fun TimerGauge(
             )
             Text(
                 text = timeText,
-                fontSize = 58.sp,
+                fontSize = timeFontSize,
                 fontWeight = FontWeight.Light,
                 color = OnBackdrop,
                 textAlign = TextAlign.Center
@@ -132,12 +140,21 @@ fun TimerGauge(
                     onClick = toggle,
                     modifier = Modifier
                         .size(46.dp)
-                        .border(1.dp, OnBackdrop.copy(alpha = 0.22f), CircleShape)
+                        .background(
+                            if (isRunning) Color.Transparent else accent.copy(alpha = 0.16f),
+                            CircleShape
+                        )
+                        .border(
+                            1.dp,
+                            if (isRunning) OnBackdrop.copy(alpha = 0.22f)
+                            else accent.copy(alpha = 0.62f),
+                            CircleShape
+                        )
                 ) {
                     Icon(
                         imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isRunning) "Pausar" else "Continuar",
-                        tint = OnBackdrop.copy(alpha = 0.75f)
+                        contentDescription = if (isRunning) "Pausar" else "Iniciar temporizador",
+                        tint = if (isRunning) OnBackdrop.copy(alpha = 0.75f) else OnBackdrop
                     )
                 }
             }
@@ -146,16 +163,17 @@ fun TimerGauge(
 }
 
 /**
- * Halo oscuro detrás del cuadrante. Separa el temporizador de la fotografía del fondo sin
- * oscurecer el resto de la pantalla: el contraste se gana justo donde hace falta.
+ * Superficie oscura y homogénea detrás del cuadrante. El tono permanece plano en la zona
+ * central y sólo se desvanece en el borde para integrarse con la fotografía.
  */
-private fun DrawScope.drawBackdropHalo(center: Offset, outer: Float) {
+private fun DrawScope.drawUniformBackdrop(center: Offset, outer: Float) {
+    val uniformTone = Color(0xFF211D21)
     drawCircle(
         brush = Brush.radialGradient(
             colorStops = arrayOf(
-                0.0f to Color.Black.copy(alpha = 0.46f),
-                0.62f to Color.Black.copy(alpha = 0.34f),
-                1.0f to Color.Transparent
+                0.0f to uniformTone,
+                0.88f to uniformTone,
+                1.0f to uniformTone.copy(alpha = 0f)
             ),
             center = center,
             radius = outer
@@ -233,7 +251,7 @@ private fun DrawScope.drawRemainingArc(
         useCenter = false,
         topLeft = topLeft,
         size = arcSize,
-        style = Stroke(width = strokePx * 2.1f, cap = StrokeCap.Butt)
+        style = Stroke(width = strokePx * 2.1f, cap = StrokeCap.Round)
     )
 
     // Arco principal, con degradado para que se note la dirección de avance.
@@ -251,7 +269,7 @@ private fun DrawScope.drawRemainingArc(
         useCenter = false,
         topLeft = topLeft,
         size = arcSize,
-        style = Stroke(width = strokePx, cap = StrokeCap.Butt)
+        style = Stroke(width = strokePx, cap = StrokeCap.Round)
     )
 
     // Testigo en la cabeza del arco, como la aguja de un instrumento.

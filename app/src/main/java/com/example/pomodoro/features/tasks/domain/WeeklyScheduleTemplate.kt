@@ -81,4 +81,8 @@ enum class WeeklyScheduleTemplate(
 
     /** Minutos de estudio a la semana, sumando todos los bloques. */
     val minutesPerWeek: Int get() = blocks.sumOf { it.study.approximateMinutes }
+
+    /** Tiempo de enfoque real, sin contar descansos. */
+    val focusMinutesPerWeek: Int
+        get() = blocks.sumOf { it.study.focusMinutes * it.study.totalPomodoros }
 }

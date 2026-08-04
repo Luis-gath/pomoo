@@ -41,7 +41,7 @@ fun PremiumUpgradeScreen(
                 title = { Text(text = stringResource(id = R.string.premium_upgrade_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
                 }
             )

@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.example.pomodoro.features.tasks.data.RepeatType
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskPriority
+import com.example.pomodoro.features.tasks.domain.ScheduleEditScope
+import com.example.pomodoro.features.tasks.domain.calendarStartMillis
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.pomodoro.core.audio.AudioRecorder
@@ -34,7 +36,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TaskEditorScreen(
     taskId: Int?,
@@ -77,6 +79,8 @@ fun TaskEditorScreen(
     ) { _ -> }
 
     val editingTask by viewModel.editingTask.collectAsState()
+    var pendingSave by remember { mutableStateOf<TaskEntity?>(null) }
+    var startAfterSave by remember { mutableStateOf(false) }
 
     LaunchedEffect(taskId) {
         viewModel.loadTaskForEdit(taskId)
@@ -87,7 +91,7 @@ fun TaskEditorScreen(
             title = task.title
             notes = task.notes
             courseOrProject = task.courseOrProject
-            dueDateTime = task.dueDateTime ?: task.timestamp
+            dueDateTime = task.calendarStartMillis ?: task.timestamp
             priority = task.priority
             repeatType = task.repeatType
             isNotificationEnabled = task.isNotificationEnabled
@@ -120,7 +124,9 @@ fun TaskEditorScreen(
         val startMillis = dueDateTime ?: now
         val endMillis = com.example.pomodoro.features.tasks.domain.TaskDurationCalculator.calculateEndTime(dueDateTime, computedDuration)
 
-        return TaskEntity(
+        val base = editingTask ?: TaskEntity(title = title, createdAt = now)
+
+        return base.copy(
             id = taskId ?: 0,
             title = title,
             notes = notes,
@@ -144,15 +150,49 @@ fun TaskEditorScreen(
             longBreakMinutes = longBreakMinutes.roundToInt(),
             longBreakEvery = longBreakEvery.roundToInt(),
             taskAutoStartNext = taskAutoStartNext,
-            createdAt = if (taskId == null) now else now,
+            createdAt = base.createdAt,
             updatedAt = now
+        )
+    }
+
+    fun saveWithScope(
+        task: TaskEntity,
+        scope: ScheduleEditScope,
+        shouldStart: Boolean = startAfterSave
+    ) {
+        viewModel.saveTask(task, scope) { savedTask ->
+            if (shouldStart) onStartTask?.invoke(savedTask) else onBack()
+        }
+        pendingSave = null
+        startAfterSave = false
+    }
+
+    fun requestSave(shouldStart: Boolean) {
+        val task = buildTask()
+        if (taskId != null && editingTask?.scheduleSeriesId != null) {
+            pendingSave = task
+            startAfterSave = shouldStart
+        } else {
+            saveWithScope(task, ScheduleEditScope.THIS_DAY, shouldStart)
+        }
+    }
+
+    pendingSave?.let { task ->
+        TaskEditScopeDialog(
+            taskTitle = task.title,
+            onDismiss = {
+                pendingSave = null
+                startAfterSave = false
+            },
+            onThisTask = { saveWithScope(task, ScheduleEditScope.THIS_DAY) },
+            onAllWeeks = { saveWithScope(task, ScheduleEditScope.ALL_WEEKS) }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (taskId == null) "Nueva Tarea" else "Editar Tarea") },
+                title = { Text(if (taskId == null) "Nueva tarea" else "Editar tarea") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
@@ -160,7 +200,7 @@ fun TaskEditorScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        viewModel.saveTask(buildTask()) { onBack() }
+                        requestSave(shouldStart = false)
                     }) {
                         Icon(Icons.Default.Check, contentDescription = "Guardar")
                     }
@@ -257,24 +297,30 @@ fun TaskEditorScreen(
 
             // Priority
             Text("Prioridad", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 TaskPriority.entries.forEach { p ->
                     FilterChip(
                         selected = priority == p,
                         onClick = { priority = p },
-                        label = { Text(p.name) }
+                        label = { Text(p.spanishLabel()) }
                     )
                 }
             }
 
             // Repeat
             Text("Repetir", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 RepeatType.entries.forEach { r ->
                     FilterChip(
                         selected = repeatType == r,
                         onClick = { repeatType = r },
-                        label = { Text(r.name) }
+                        label = { Text(r.spanishLabel()) }
                     )
                 }
             }
@@ -300,7 +346,7 @@ fun TaskEditorScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "⏱️ Configuración Pomodoro",
+                            "Configuración Pomodoro",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -429,9 +475,7 @@ fun TaskEditorScreen(
                         Spacer(Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                viewModel.saveTask(buildTask()) { savedTask ->
-                                    onStartTask(savedTask)
-                                }
+                                requestSave(shouldStart = true)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
@@ -440,7 +484,7 @@ fun TaskEditorScreen(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("▶ Iniciar esta tarea", fontWeight = FontWeight.Bold)
+                            Text("Iniciar esta tarea", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -513,6 +557,61 @@ fun TaskEditorScreen(
             Spacer(Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+private fun TaskEditScopeDialog(
+    taskTitle: String,
+    onDismiss: () -> Unit,
+    onThisTask: () -> Unit,
+    onAllWeeks: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Aplicar cambios") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = taskTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Elige si quieres modificar únicamente esta tarea o el mismo día del horario en todas las semanas pendientes.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(
+                    onClick = onThisTask,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Sólo esta tarea")
+                }
+                Button(
+                    onClick = onAllWeeks,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Todas las semanas")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
+private fun TaskPriority.spanishLabel(): String = when (this) {
+    TaskPriority.LOW -> "Baja"
+    TaskPriority.MEDIUM -> "Media"
+    TaskPriority.HIGH -> "Alta"
+}
+
+private fun RepeatType.spanishLabel(): String = when (this) {
+    RepeatType.NONE -> "No repetir"
+    RepeatType.DAILY -> "Diaria"
+    RepeatType.WEEKLY -> "Semanal"
+    RepeatType.MONTHLY -> "Mensual"
 }
 
 @Composable

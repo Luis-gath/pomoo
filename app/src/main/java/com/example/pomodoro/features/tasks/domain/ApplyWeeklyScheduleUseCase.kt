@@ -1,7 +1,9 @@
 package com.example.pomodoro.features.tasks.domain
 
 import com.example.pomodoro.features.tasks.data.TaskPriority
+import com.example.pomodoro.features.tasks.data.RepeatType
 import java.time.LocalDate
+import java.util.UUID
 import javax.inject.Inject
 
 data class ScheduleApplied(
@@ -33,6 +35,7 @@ class ApplyWeeklyScheduleUseCase @Inject constructor(
         from: LocalDate = LocalDate.now()
     ): ScheduleApplied {
         val sessions = WeeklyScheduleGenerator.generate(template, from, weeks)
+        val seriesId = UUID.randomUUID().toString()
 
         var created = 0
         sessions.forEach { session ->
@@ -46,7 +49,9 @@ class ApplyWeeklyScheduleUseCase @Inject constructor(
                 shortBreakMinutes = session.study.shortBreakMinutes,
                 longBreakMinutes = session.study.longBreakMinutes,
                 longBreakEvery = session.study.longBreakEvery,
-                isNotificationEnabled = withReminders
+                isNotificationEnabled = withReminders,
+                repeatType = RepeatType.WEEKLY,
+                scheduleSeriesId = seriesId
             )
             if (task != null) created++
         }

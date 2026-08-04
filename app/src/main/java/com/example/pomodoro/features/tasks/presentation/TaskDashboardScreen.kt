@@ -1,7 +1,9 @@
 package com.example.pomodoro.features.tasks.presentation
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +21,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskStatus
 /**
@@ -34,8 +37,6 @@ fun TaskDashboardScreen(
     onOpenCalendar: () -> Unit
 ) {
     val state by viewModel.dashboardState.collectAsState()
-    val scope = rememberCoroutineScope()
-
     var showScheduleDialog by remember { mutableStateOf(false) }
     val applyingSchedule by viewModel.applyingSchedule.collectAsState()
     val scheduleMessage by viewModel.scheduleMessage.collectAsState()
@@ -53,11 +54,15 @@ fun TaskDashboardScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { 
-                    Text(
-                        "📋 Mis Tareas",
-                        fontWeight = FontWeight.Bold
-                    )
+                title = {
+                    Column {
+                        Text("Mis tareas", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "${state.todoTasks.size + state.doingTasks.size} activas",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -65,9 +70,9 @@ fun TaskDashboardScreen(
                     }
                 },
                 actions = {
-                    // Aplicar una rutina semanal de golpe
+                    // Horarios, hábitos y planes compartibles.
                     IconButton(onClick = { showScheduleDialog = true }) {
-                        Icon(Icons.Default.EventRepeat, contentDescription = "Aplicar un horario")
+                        Icon(Icons.Default.EventRepeat, contentDescription = "Planificar estudio")
                     }
                     // Botón Calendario
                     IconButton(onClick = onOpenCalendar) {
@@ -82,13 +87,6 @@ fun TaskDashboardScreen(
                         )
                     }
                     
-                    IconButton(onClick = { viewModel.showAddSheet() }) {
-                        Icon(
-                            Icons.Default.Add, 
-                            contentDescription = "Nueva Tarea",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
             )
         },
@@ -96,7 +94,7 @@ fun TaskDashboardScreen(
             ExtendedFloatingActionButton(
                 onClick = { viewModel.showAddSheet() },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Nueva Tarea") },
+                text = { Text("Nueva tarea") },
                 containerColor = MaterialTheme.colorScheme.primary
             )
         }
@@ -113,7 +111,7 @@ fun TaskDashboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Buscar tareas...") },
+                placeholder = { Text("Buscar tareas") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (state.searchQuery.isNotEmpty()) {
@@ -125,9 +123,14 @@ fun TaskDashboardScreen(
                 singleLine = true,
                 shape = MaterialTheme.shapes.large
             )
-            
 
-            
+            TaskDashboardSummary(
+                today = state.todayCount,
+                inProgress = state.doingTasks.size,
+                completed = state.completedCount,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+
             // --- Tab View (Lista) ---
             if (state.viewMode == ViewMode.LIST) {
                 // --- Tabs ---
@@ -154,7 +157,7 @@ fun TaskDashboardScreen(
                                         when (tab) {
                                             DashboardTab.TODAY -> "Hoy"
                                             DashboardTab.UPCOMING -> "Próximas"
-                                            DashboardTab.COMPLETED -> "Hechas"
+                                            DashboardTab.COMPLETED -> "Completadas"
                                         }
                                     )
                                     if (count > 0) {
@@ -232,9 +235,10 @@ fun TaskDashboardScreen(
         WeeklyScheduleDialog(
             isApplying = applyingSchedule,
             onDismiss = { showScheduleDialog = false },
-            onApply = { template, weeks, course, reminders ->
+            onApplySchedule = { template, weeks, course, reminders ->
                 viewModel.applySchedule(template, weeks, course, reminders)
-            }
+            },
+            onApplyHabit = viewModel::applyHabit
         )
     }
 
@@ -279,7 +283,6 @@ fun TaskBoardView(
             title = "POR HACER",
             tasks = todo,
             color = MaterialTheme.colorScheme.secondaryContainer,
-            taskColor = MaterialTheme.colorScheme.surface,
             onTaskClick = onTaskClick,
             onStartClick = onStartTask,
             onEditClick = onEditClick,
@@ -289,10 +292,9 @@ fun TaskBoardView(
         )
         
         BoardColumn(
-            title = "EN PROCESO",
+            title = "EN CURSO",
             tasks = doing,
             color = MaterialTheme.colorScheme.primaryContainer,
-            taskColor = MaterialTheme.colorScheme.surface,
             onTaskClick = onTaskClick,
             onStartClick = onStartTask,
             onEditClick = onEditClick,
@@ -302,10 +304,9 @@ fun TaskBoardView(
         )
         
         BoardColumn(
-            title = "HECHO",
+            title = "COMPLETADAS",
             tasks = done,
             color = MaterialTheme.colorScheme.tertiaryContainer,
-            taskColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
             onTaskClick = onTaskClick,
             onStartClick = onStartTask,
             onEditClick = onEditClick,
@@ -322,7 +323,6 @@ fun BoardColumn(
     title: String,
     tasks: List<TaskEntity>,
     color: Color,
-    taskColor: Color,
     onTaskClick: (TaskEntity) -> Unit,
     onStartClick: (TaskEntity) -> Unit,
     onEditClick: (TaskEntity) -> Unit,
@@ -334,7 +334,8 @@ fun BoardColumn(
         modifier = Modifier
             .width(280.dp)
             .fillMaxHeight()
-            .background(color.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+            .background(color.copy(alpha = 0.24f), RoundedCornerShape(20.dp))
+            .border(1.dp, color.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
             .padding(12.dp)
     ) {
         // Column Header
@@ -394,7 +395,7 @@ private fun TaskList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(tasks, key = { it.id }) { task ->
@@ -410,13 +411,86 @@ private fun TaskList(
             )
         }
         
-        // Espacio para el FAB
-        item { Spacer(Modifier.height(80.dp)) }
     }
 }
+
+@Composable
+private fun TaskDashboardSummary(
+    today: Int,
+    inProgress: Int,
+    completed: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TaskMetric(
+            value = today,
+            label = "Para hoy",
+            icon = Icons.Default.Today,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f)
+        )
+        TaskMetric(
+            value = inProgress,
+            label = "En curso",
+            icon = Icons.Default.PlayCircle,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.weight(1f)
+        )
+        TaskMetric(
+            value = completed,
+            label = "Completadas",
+            icon = Icons.Default.TaskAlt,
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun TaskMetric(
+    value: Int,
+    label: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.animateContentSize(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(17.dp))
+                AnimatedContent(targetState = value, label = "metric_value") { count ->
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+
 @Composable
 private fun EmptyState(
-    tab: DashboardTab, // Deprecated usage in board, kept for compatibility
+    tab: DashboardTab,
     searchQuery: String
 ) {
     Box(
@@ -427,17 +501,37 @@ private fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(32.dp)
         ) {
-            val (emoji, title, subtitle) = Triple(
-                "📋",
-                "Sin tareas", 
-                "Crea tu primera tarea para verla aquí"
-            )
-            
-            Text(
-                text = emoji,
-                style = MaterialTheme.typography.displayLarge
-            )
-            
+            val hasSearch = searchQuery.isNotBlank()
+            val icon = if (hasSearch) Icons.Default.SearchOff else when (tab) {
+                DashboardTab.TODAY -> Icons.Default.Today
+                DashboardTab.UPCOMING -> Icons.Default.Event
+                DashboardTab.COMPLETED -> Icons.Default.TaskAlt
+            }
+            val title = if (hasSearch) "Sin resultados" else when (tab) {
+                DashboardTab.TODAY -> "Tu día está despejado"
+                DashboardTab.UPCOMING -> "Nada programado"
+                DashboardTab.COMPLETED -> "Aún no hay tareas completadas"
+            }
+            val subtitle = if (hasSearch) {
+                "No encontramos tareas para “$searchQuery”."
+            } else when (tab) {
+                DashboardTab.TODAY -> "Crea una tarea o revisa lo que viene después."
+                DashboardTab.UPCOMING -> "Las tareas con fecha futura aparecerán aquí."
+                DashboardTab.COMPLETED -> "Tus avances se guardarán en esta sección."
+            }
+
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(18.dp).size(30.dp)
+                )
+            }
+
             Spacer(Modifier.height(16.dp))
             
             Text(

@@ -56,6 +56,14 @@ data class TaskEntity(
     
     // --- Configuración de repetición ---
     val repeatType: RepeatType = RepeatType.NONE,
+
+    /**
+     * Identificador interno del horario que originó esta sesión.
+     *
+     * Permite modificar una ocurrencia sin confundirla con otras tareas que tengan el
+     * mismo título, o aplicar el cambio al mismo día de todas las semanas del horario.
+     */
+    val scheduleSeriesId: String? = null,
     
     // --- Notificaciones y audio ---
     val isNotificationEnabled: Boolean = false,

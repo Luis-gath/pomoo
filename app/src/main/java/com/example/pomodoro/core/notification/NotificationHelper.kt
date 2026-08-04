@@ -124,7 +124,7 @@ class NotificationHelper(private val context: Context) {
         createAlertChannel()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_HIGH_PRIORITY_ID)
-            .setContentTitle("🎉 ¡Tarea completada!")
+                .setContentTitle("Tarea completada")
             .setContentText("Has completado todos los pomodoros de: $taskTitle")
             .setSmallIcon(R.drawable.ic_notification_timer)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

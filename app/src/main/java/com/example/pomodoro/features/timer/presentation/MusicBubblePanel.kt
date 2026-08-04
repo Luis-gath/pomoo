@@ -2,7 +2,6 @@ package com.example.pomodoro.features.timer.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +12,8 @@ import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.VolumeDown
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.rounded.Audiotrack
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
@@ -68,45 +69,82 @@ fun MusicBubblePanel(
         elevation = CardDefaults.cardElevation(8.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // --- Header: Switch & Mute ---
+            // Cabecera con cierre explícito: el panel también se puede cerrar tocando fuera,
+            // pero el botón evita que esa interacción quede escondida.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    "🎧 Ambiente",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Mute Button
-                    IconButton(
-                        onClick = { onToggleMute(!audioSettings.isMuted) },
-                        modifier = Modifier.size(32.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            if (audioSettings.isMuted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
-                            contentDescription = "Mute",
-                            tint = if (audioSettings.isMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            Icons.Rounded.Headphones,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    
-                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("Ambiente", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (audioSettings.isMusicEnabled) "Activado" else "Desactivado",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-                    // Master Switch
-                    Switch(
-                        checked = audioSettings.isMusicEnabled,
-                        onCheckedChange = { onToggleMusic(it) },
-                        thumbContent = if (audioSettings.isMusicEnabled) {
-                            { Icon(Icons.Rounded.MusicNote, null, Modifier.size(12.dp)) }
-                        } else null
-                    )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Cerrar")
                 }
             }
-            
-            Divider(Modifier.padding(vertical = 12.dp).fillMaxWidth().alpha(0.2f))
+
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Música ambiente",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = { onToggleMute(!audioSettings.isMuted) },
+                    enabled = audioSettings.isMusicEnabled,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        if (audioSettings.isMuted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
+                        contentDescription = if (audioSettings.isMuted) "Activar sonido" else "Silenciar",
+                        tint = if (audioSettings.isMuted) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = audioSettings.isMusicEnabled,
+                    onCheckedChange = onToggleMusic,
+                    thumbContent = if (audioSettings.isMusicEnabled) {
+                        { Icon(Icons.Rounded.MusicNote, null, Modifier.size(12.dp)) }
+                    } else null
+                )
+            }
+
+            Divider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
             
             // --- Current Track Info ---
             if (audioSettings.isMusicEnabled) {
@@ -155,7 +193,7 @@ fun MusicBubblePanel(
                 )
             }
             
-            Divider(Modifier.padding(vertical = 12.dp).fillMaxWidth().alpha(0.2f))
+            Divider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
             
             // --- Track List ---
             Text(

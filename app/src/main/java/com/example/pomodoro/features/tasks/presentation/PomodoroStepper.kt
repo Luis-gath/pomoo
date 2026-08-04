@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,8 +38,17 @@ fun PomodoroStepper(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icono y label
-            Text("🍅", style = MaterialTheme.typography.headlineMedium)
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(9.dp).size(24.dp)
+                )
+            }
             
             Spacer(Modifier.width(12.dp))
             
@@ -116,10 +126,10 @@ fun CompactStepper(
     value: Int,
     onValueChange: (Int) -> Unit,
     label: String,
+    modifier: Modifier = Modifier,
     suffix: String = "min",
     minValue: Int = 1,
-    maxValue: Int = 90,
-    modifier: Modifier = Modifier
+    maxValue: Int = 90
 ) {
     val actualValue = value.coerceIn(minValue, maxValue)
     

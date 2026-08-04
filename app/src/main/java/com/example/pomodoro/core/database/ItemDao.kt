@@ -16,6 +16,10 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE areaId = :areaId ORDER BY createdAt DESC")
     fun getItemsForArea(areaId: Int): Flow<List<Item>>
 
+    /** Vista general para calcular métricas por área sin lanzar una consulta por tarjeta. */
+    @Query("SELECT * FROM items ORDER BY createdAt DESC")
+    fun getAllItems(): Flow<List<Item>>
+
     @Query("SELECT * FROM items WHERE areaId = :areaId AND mark = :mark ORDER BY createdAt DESC")
     fun getItemsForAreaByMark(areaId: Int, mark: ItemMark): Flow<List<Item>>
 

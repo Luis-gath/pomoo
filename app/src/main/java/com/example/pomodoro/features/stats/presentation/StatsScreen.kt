@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -74,7 +74,7 @@ fun StatsScreen(
                 StatKpiCard(
                     value = uiState.focusMinutes.toString(),
                     label = "Minutos",
-                    icon = Icons.Rounded.CheckCircle, // Placeholder
+                    icon = Icons.Rounded.Schedule,
                     accentColor = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.weight(1f)
                 )
@@ -91,7 +91,7 @@ fun StatsScreen(
             
             // Nivel 2: Weekly Progress Chart
             Text(
-                "Tu Progreso",
+                "Tu progreso",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -126,7 +126,7 @@ fun StatsScreen(
             // Nivel 4: Top Lists
              if (uiState.topTasks.isNotEmpty()) {
                 TopListSection(
-                    title = "Top Tareas",
+                    title = "Tareas destacadas",
                     items = uiState.topTasks
                 )
                 Spacer(Modifier.height(32.dp))

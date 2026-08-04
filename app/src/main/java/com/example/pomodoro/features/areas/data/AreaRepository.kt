@@ -29,6 +29,8 @@ interface AreaRepository {
 
     fun getItemsForArea(areaId: Int): Flow<List<Item>>
 
+    fun getAllItems(): Flow<List<Item>>
+
     fun getItemsForAreaByMark(areaId: Int, mark: ItemMark): Flow<List<Item>>
 
     /** Entregas pendientes de todas las áreas, ordenadas por fecha. */

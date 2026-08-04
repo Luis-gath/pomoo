@@ -6,20 +6,24 @@ import com.example.pomodoro.features.areas.data.Area
 import com.example.pomodoro.features.areas.data.AreaRepository
 import com.example.pomodoro.features.areas.data.AreaType
 import com.example.pomodoro.features.areas.data.Item
+import com.example.pomodoro.features.areas.data.ItemMark
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class AreasUiState(
-    val areas: List<Area> = emptyList(),
-    val deliverables: List<Item> = emptyList(),
-    val showCreateDialog: Boolean = false
+data class AreaOverviewUi(
+    val area: Area,
+    val materialCount: Int,
+    val importantCount: Int,
+    val deliveryCount: Int,
+    val lastActivityAt: Long?
 )
 
 @HiltViewModel
@@ -32,6 +36,21 @@ class AreasViewModel @Inject constructor(
 
     val areas: StateFlow<List<Area>> = repository.getActiveAreas()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Métricas de portada calculadas en una sola combinación reactiva. */
+    val areaOverviews: StateFlow<List<AreaOverviewUi>> =
+        combine(repository.getActiveAreas(), repository.getAllItems()) { activeAreas, allItems ->
+            activeAreas.map { area ->
+                val areaItems = allItems.filter { it.areaId == area.id }
+                AreaOverviewUi(
+                    area = area,
+                    materialCount = areaItems.size,
+                    importantCount = areaItems.count { it.mark == ItemMark.IMPORTANTE },
+                    deliveryCount = areaItems.count { it.mark == ItemMark.ENTREGA },
+                    lastActivityAt = areaItems.maxOfOrNull { it.createdAt }
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** Entregas de todas las áreas: lo urgente se ve sin entrar en cada una. */
     val deliverables: StateFlow<List<Item>> = repository.getUpcomingDeliverables()

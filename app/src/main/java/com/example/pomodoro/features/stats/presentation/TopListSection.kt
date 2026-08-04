@@ -104,7 +104,7 @@ private fun TopListItem(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = "${data.value} 🍅",
+                        text = "${data.value} sesiones",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
