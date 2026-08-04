@@ -2,6 +2,8 @@ package com.example.pomodoro.core.di
 
 import com.example.pomodoro.features.areas.data.AreaRepository
 import com.example.pomodoro.features.areas.data.AreaRepositoryImpl
+import com.example.pomodoro.features.auth.data.AuthRepository
+import com.example.pomodoro.features.auth.data.AuthRepositoryImpl
 import com.example.pomodoro.features.timer.data.SettingsDataStore
 import com.example.pomodoro.features.timer.data.SettingsRepository
 import com.example.pomodoro.features.stats.data.StatsRepository
@@ -37,4 +39,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAreaRepository(impl: AreaRepositoryImpl): AreaRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
 }

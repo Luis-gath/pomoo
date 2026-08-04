@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.googleServices)
 }
 
 android {
@@ -12,7 +13,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.pomodoro"
+        // Google Play rechaza cualquier paquete que empiece por com.example, y este es
+        // ademas el identificador para el que esta emitido google-services.json.
+        // El namespace sigue siendo com.example.pomodoro: solo afecta a donde se generan
+        // R y BuildConfig, y cambiarlo obligaria a renombrar el paquete en todo el codigo.
+        applicationId = "com.luis.pomodoro"
         minSdk = 26 // Android 8.0 (Oreo) per user request
         targetSdk = 34
         versionCode = 1
@@ -103,6 +108,16 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
     implementation(libs.google.code.scanner)
+
+    // Firebase Authentication
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+
+    // Credential Manager: la via actual para Google Sign-In.
+    // GoogleSignInClient (play-services-auth) esta obsoleto.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     // Glance Widget
     implementation(libs.androidx.glance.appwidget)

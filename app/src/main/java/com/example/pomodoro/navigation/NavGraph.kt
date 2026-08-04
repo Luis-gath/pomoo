@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.example.pomodoro.features.areas.presentation.AreaDetailScreen
 import com.example.pomodoro.features.areas.presentation.AreasScreen
 import com.example.pomodoro.features.areas.presentation.ReceiveShareScreen
+import com.example.pomodoro.features.auth.presentation.SignInScreen
 import com.example.pomodoro.features.premium.presentation.PremiumUpgradeScreen
 import com.example.pomodoro.features.tasks.presentation.CalendarWeekScreen
 import com.example.pomodoro.features.timer.presentation.HomeScreen
@@ -36,6 +37,7 @@ import com.example.pomodoro.features.timer.presentation.PomodoroViewModel
 object NavGraph {
     const val AREAS = "areas"
     const val RECEIVE_SHARE = "receive_share"
+    const val SIGN_IN = "sign_in"
 }
 
 @Composable
@@ -114,6 +116,13 @@ fun NavGraph(navController: NavHostController) {
         }
         composable("premium") {
             PremiumUpgradeScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(NavGraph.SIGN_IN) {
+            SignInScreen(
+                onSignedIn = { navController.popBackStack() },
+                onSkip = { navController.popBackStack() }
+            )
         }
 
         // --- Task Dashboard (pantalla principal de tareas) ---

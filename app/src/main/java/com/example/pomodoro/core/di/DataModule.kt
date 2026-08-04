@@ -24,6 +24,7 @@ import com.example.pomodoro.core.notification.NotificationHelper
 import com.example.pomodoro.features.tasks.data.TaskAlarmScheduler
 import com.example.pomodoro.core.audio.AudioPlayerManager
 import com.example.pomodoro.core.notification.TaskReminderNotifier
+import com.google.firebase.auth.FirebaseAuth
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -128,6 +129,12 @@ object DataModule {
     @Singleton
     fun provideTaskReminderNotifier(@ApplicationContext context: Context) =
         TaskReminderNotifier(context)
+
+    // --- Autenticación ---
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
 
     // --- Concurrencia ---
 

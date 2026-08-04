@@ -30,6 +30,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.pomodoro.core.focus.DoNotDisturbController
+import com.example.pomodoro.features.auth.presentation.AuthViewModel
+import com.example.pomodoro.navigation.NavGraph
 import com.example.pomodoro.shared.ui.theme.AppTone
 import com.example.pomodoro.shared.ui.theme.palette
 
@@ -37,9 +39,11 @@ import com.example.pomodoro.shared.ui.theme.palette
 @Composable
 fun SettingsScreen(
     navController: NavController,
-    viewModel: PomodoroViewModel = hiltViewModel()
+    viewModel: PomodoroViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
+    val authState by authViewModel.uiState.collectAsState()
 
     // El permiso de No molestar se concede fuera de la app; se vuelve a consultar al regresar.
     val context = LocalContext.current
@@ -99,6 +103,48 @@ fun SettingsScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                SettingsSection(
+                    title = "Cuenta",
+                    description = "Inicia sesión para conservar tu progreso y participar en la comunidad."
+                ) {
+                    val user = authState.user
+                    if (user == null || user.isAnonymous) {
+                        Text(
+                            text = if (user == null) "No has iniciado sesión"
+                            else "Estás como invitado: tu progreso solo vive en este dispositivo",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        Button(
+                            onClick = { navController.navigate(NavGraph.SIGN_IN) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (user == null) "Iniciar sesión" else "Vincular con Google")
+                        }
+                    } else {
+                        Text(
+                            text = user.displayName ?: user.email.orEmpty(),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        user.email?.takeIf { it != user.displayName }?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = authViewModel::signOut,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            Text("Cerrar sesión")
+                        }
+                    }
+                }
+
                 SettingsSection(
                     title = "Temporizador",
                     description = "Define la duración de cada fase y el ritmo de tus ciclos."
