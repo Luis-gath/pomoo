@@ -127,7 +127,8 @@ fun SettingsScreen(
                             text = user.displayName ?: user.email.orEmpty(),
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        user.email?.takeIf { it != user.displayName }?.let {
+                        // El correo solo como subtítulo: si no hay nombre ya se muestra arriba.
+                        user.email?.takeIf { user.displayName != null }?.let {
                             Text(
                                 text = it,
                                 style = MaterialTheme.typography.bodySmall,

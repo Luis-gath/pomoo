@@ -7,9 +7,12 @@ import com.example.pomodoro.features.auth.data.AuthRepository
 import com.example.pomodoro.features.auth.domain.AuthResult
 import com.example.pomodoro.features.auth.domain.AuthUser
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -30,6 +33,16 @@ class AuthViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val transient = MutableStateFlow(AuthUiState())
+
+    /**
+     * Se emite solo cuando una autenticación termina bien.
+     *
+     * Deliberadamente es un evento y no un estado derivado: un invitado ya cuenta como
+     * sesión iniciada, así que cerrar la pantalla en función de "hay usuario" la hacía
+     * rebotar nada más abrirse e impedía vincular la cuenta.
+     */
+    private val _signedIn = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val signedIn: SharedFlow<Unit> = _signedIn.asSharedFlow()
 
     val uiState: StateFlow<AuthUiState> = combine(
         transient,
@@ -69,7 +82,10 @@ class AuthViewModel @Inject constructor(
         transient.value = transient.value.copy(isWorking = true, error = null)
         viewModelScope.launch {
             val message = when (val result = block()) {
-                is AuthResult.Success -> null
+                is AuthResult.Success -> {
+                    _signedIn.tryEmit(Unit)
+                    null
+                }
                 // Cerrar el selector es una decisión del usuario, no un fallo que reportar.
                 AuthResult.Cancelled -> null
                 AuthResult.NoCredential ->

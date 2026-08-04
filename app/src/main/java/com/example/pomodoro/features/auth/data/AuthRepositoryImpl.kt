@@ -7,11 +7,13 @@ import com.example.pomodoro.features.auth.domain.AuthResult
 import com.example.pomodoro.features.auth.domain.AuthType
 import com.example.pomodoro.features.auth.domain.AuthUser
 import androidx.credentials.CredentialManager
+import androidx.credentials.CredentialOption
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -79,26 +81,38 @@ class AuthRepositoryImpl @Inject constructor(
         activityContext: Context,
         onCredential: suspend (AuthCredential) -> FirebaseUser?
     ): AuthResult {
-        val googleIdOption = GetGoogleIdOption.Builder()
-            // Con true solo aparecerían cuentas que ya usaron la app, y un usuario nuevo
-            // se encontraría el selector vacío.
+        val credentialManager = CredentialManager.create(activityContext)
+
+        // Primero el acceso silencioso, que reconoce al que ya entró antes sin
+        // enseñarle otra vez el selector.
+        val seamless = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(webClientId)
             .build()
 
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
-            .build()
+        // GetGoogleIdOption responde NoCredentialException cuando no encuentra una
+        // credencial que encaje, incluso habiendo cuentas en el dispositivo. Para un
+        // botón explícito hay que caer en GetSignInWithGoogleOption, que abre el
+        // selector completo en lugar de rendirse.
+        val explicit = GetSignInWithGoogleOption.Builder(webClientId).build()
 
         val response = try {
-            CredentialManager.create(activityContext).getCredential(activityContext, request)
+            credentialManager.request(activityContext, seamless)
+        } catch (e: NoCredentialException) {
+            Log.i(TAG, "Sin credencial reutilizable; abriendo el selector de cuentas")
+            try {
+                credentialManager.request(activityContext, explicit)
+            } catch (e2: GetCredentialCancellationException) {
+                return AuthResult.Cancelled
+            } catch (e2: NoCredentialException) {
+                Log.w(TAG, "El selector tampoco devolvió credencial", e2)
+                return AuthResult.NoCredential
+            } catch (e2: Exception) {
+                Log.w(TAG, "Fallo al abrir el selector de cuentas", e2)
+                return AuthResult.Error(e2.message ?: "No se pudo abrir el selector de cuentas")
+            }
         } catch (e: GetCredentialCancellationException) {
             return AuthResult.Cancelled
-        } catch (e: NoCredentialException) {
-            // Play Services devuelve esto tanto si no hay cuentas como si rechaza la
-            // petición, y el motivo real solo aparece aquí.
-            Log.w(TAG, "Credential Manager no devolvió credencial", e)
-            return AuthResult.NoCredential
         } catch (e: Exception) {
             Log.w(TAG, "Fallo al pedir credencial de Google", e)
             return AuthResult.Error(e.message ?: "No se pudo abrir el selector de cuentas")
@@ -114,6 +128,14 @@ class AuthRepositoryImpl @Inject constructor(
         val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
         return runAuth { onCredential(GoogleAuthProvider.getCredential(idToken, null)) }
     }
+
+    private suspend fun CredentialManager.request(
+        activityContext: Context,
+        option: CredentialOption
+    ) = getCredential(
+        activityContext,
+        GetCredentialRequest.Builder().addCredentialOption(option).build()
+    )
 
     private suspend fun runAuth(block: suspend () -> FirebaseUser?): AuthResult = try {
         block()?.toAuthUser()?.let { AuthResult.Success(it) }

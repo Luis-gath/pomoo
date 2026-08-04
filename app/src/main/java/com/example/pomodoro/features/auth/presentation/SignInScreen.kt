@@ -47,8 +47,8 @@ fun SignInScreen(
     val activity = remember(context) { context.findActivity() }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state.isSignedIn) {
-        if (state.isSignedIn) onSignedIn()
+    LaunchedEffect(Unit) {
+        viewModel.signedIn.collect { onSignedIn() }
     }
 
     LaunchedEffect(state.error) {
@@ -67,13 +67,19 @@ fun SignInScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            val isGuest = state.user?.isAnonymous == true
+
             Text(
                 text = "Tu progreso, en cualquier dispositivo",
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Inicia sesión para conservar tus estadísticas y participar en la comunidad.",
+                text = if (isGuest) {
+                    "Vincula tu cuenta para no perder lo que ya llevas hecho como invitado."
+                } else {
+                    "Inicia sesión para conservar tus estadísticas y participar en la comunidad."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -88,16 +94,19 @@ fun SignInScreen(
                     enabled = activity != null,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Continuar con Google")
+                    Text(if (isGuest) "Vincular con Google" else "Continuar con Google")
                 }
 
-                OutlinedButton(
-                    onClick = viewModel::continueAsGuest,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                ) {
-                    Text("Entrar como invitado")
+                // Ya siendo invitado no tiene sentido ofrecer volver a entrar como tal.
+                if (!isGuest) {
+                    OutlinedButton(
+                        onClick = viewModel::continueAsGuest,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    ) {
+                        Text("Entrar como invitado")
+                    }
                 }
 
                 TextButton(
