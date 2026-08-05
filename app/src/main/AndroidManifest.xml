@@ -78,6 +78,11 @@
 
         <receiver android:name=".features.tasks.data.TaskReceiver" android:exported="false" />
 
+        <receiver
+            android:name=".features.areas.data.DeliverableReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <!--
             Permite entregar los archivos del área a otras apps (NotebookLM, Drive, el visor
             de PDF). La autoridad usa ${applicationId} para que funcione igual en la variante

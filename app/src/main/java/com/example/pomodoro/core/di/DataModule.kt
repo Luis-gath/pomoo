@@ -20,6 +20,8 @@ import com.example.pomodoro.core.database.TaskDatabase
 import com.example.pomodoro.core.feedback.SessionFeedback
 import com.example.pomodoro.core.focus.DoNotDisturbController
 import com.example.pomodoro.features.areas.data.FileImporter
+import com.example.pomodoro.features.areas.data.DeliverableAlarmScheduler
+import com.example.pomodoro.core.notification.DeliverableNotifier
 import com.example.pomodoro.features.timer.domain.PomodoroEngine
 import com.example.pomodoro.core.notification.NotificationHelper
 import com.example.pomodoro.features.tasks.data.TaskAlarmScheduler
@@ -130,6 +132,16 @@ object DataModule {
     @Singleton
     fun provideTaskReminderNotifier(@ApplicationContext context: Context) =
         TaskReminderNotifier(context)
+
+    @Provides
+    @Singleton
+    fun provideDeliverableAlarmScheduler(@ApplicationContext context: Context) =
+        DeliverableAlarmScheduler(context)
+
+    @Provides
+    @Singleton
+    fun provideDeliverableNotifier(@ApplicationContext context: Context) =
+        DeliverableNotifier(context)
 
     // --- Autenticación ---
 
