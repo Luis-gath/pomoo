@@ -64,6 +64,9 @@ data class Item(
     /** Fecha de entrega cuando la marca es ENTREGA. */
     val dueAt: Long? = null,
 
+    /** Cuándo se dio por entregada. Null mientras siga pendiente. */
+    val completedAt: Long? = null,
+
     /** Tarea del Pomodoro con la que se relaciona, si el usuario la enlaza. */
     val taskId: Int? = null,
 
@@ -72,4 +75,8 @@ data class Item(
 ) {
     /** Un material referenciado puede quedar roto si el usuario borra el original. */
     val isExternalReference: Boolean get() = uri != null && localPath == null
+
+    /** Entrega con fecha que todavía no se ha marcado como hecha. */
+    val isPendingDeliverable: Boolean
+        get() = mark == ItemMark.ENTREGA && dueAt != null && completedAt == null
 }

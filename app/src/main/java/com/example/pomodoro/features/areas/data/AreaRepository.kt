@@ -36,6 +36,12 @@ interface AreaRepository {
     /** Entregas pendientes de todas las áreas, ordenadas por fecha. */
     fun getUpcomingDeliverables(): Flow<List<Item>>
 
+    /** Entregas con fecha que aún no se han marcado como hechas. */
+    fun getPendingDeliverables(): Flow<List<Item>>
+
+    /** Marca o desmarca una entrega como hecha. `null` la devuelve a pendiente. */
+    suspend fun setDeliverableCompleted(id: Int, completedAt: Long?)
+
     fun countItemsForArea(areaId: Int): Flow<Int>
 
     suspend fun getItemById(id: Int): Item?

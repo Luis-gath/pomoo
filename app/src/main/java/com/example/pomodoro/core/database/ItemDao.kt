@@ -31,6 +31,17 @@ interface ItemDao {
     """)
     fun getUpcomingDeliverables(): Flow<List<Item>>
 
+    /** Solo lo que sigue sin entregar: es lo que alimenta los avisos y la vista de urgencias. */
+    @Query("""
+        SELECT * FROM items
+        WHERE mark = 'ENTREGA' AND dueAt IS NOT NULL AND completedAt IS NULL
+        ORDER BY dueAt ASC
+    """)
+    fun getPendingDeliverables(): Flow<List<Item>>
+
+    @Query("UPDATE items SET completedAt = :completedAt WHERE id = :id")
+    suspend fun setCompletedAt(id: Int, completedAt: Long?)
+
     @Query("SELECT * FROM items WHERE id = :id")
     suspend fun getItemById(id: Int): Item?
 

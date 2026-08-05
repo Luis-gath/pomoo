@@ -64,3 +64,15 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         db.execSQL("ALTER TABLE `tasks` ADD COLUMN `scheduleSeriesId` TEXT")
     }
 }
+
+/**
+ * Permite archivar una entrega en vez de borrarla.
+ *
+ * Se añade anulable y sin valor por defecto: las entregas que ya existan quedan como
+ * pendientes, que es justo lo que eran antes de este cambio.
+ */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `items` ADD COLUMN `completedAt` INTEGER")
+    }
+}

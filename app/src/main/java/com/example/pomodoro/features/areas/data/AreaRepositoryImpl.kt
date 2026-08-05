@@ -44,6 +44,11 @@ class AreaRepositoryImpl @Inject constructor(
     override fun getUpcomingDeliverables(): Flow<List<Item>> =
         itemDao.getUpcomingDeliverables()
 
+    override fun getPendingDeliverables(): Flow<List<Item>> = itemDao.getPendingDeliverables()
+
+    override suspend fun setDeliverableCompleted(id: Int, completedAt: Long?) =
+        itemDao.setCompletedAt(id, completedAt)
+
     override fun countItemsForArea(areaId: Int): Flow<Int> =
         itemDao.countItemsForArea(areaId)
 
