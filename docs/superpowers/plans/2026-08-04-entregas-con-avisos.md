@@ -361,7 +361,16 @@ class DeliverableNotifier(private val context: Context) {
     companion object {
         const val CHANNEL_ID = "entregas"
         const val CHANNEL_NAME = "Entregas"
-        private const val NOTIFICATION_BASE = 500_000
+
+        /**
+         * Identificadores de notificación. Van muy por encima del rango de las alarmas
+         * (`DeliverableReminders` usa 500.000 + id×3), que con los volúmenes reales de una
+         * app de estudio no pasa de unas decenas de miles.
+         */
+        private const val NOTIFICATION_BASE = 2_000_000
+
+        /** Códigos de los PendingIntent de la acción «Entregado», en su propio tramo. */
+        private const val ACTION_BASE = 3_000_000
     }
 
     init {
@@ -395,7 +404,7 @@ class DeliverableNotifier(private val context: Context) {
         }
         val donePending = PendingIntent.getBroadcast(
             context,
-            NOTIFICATION_BASE + 100_000 + item.id,
+            ACTION_BASE + item.id,
             doneIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

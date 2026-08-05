@@ -80,3 +80,6 @@ vcs.xml
 
 # APKs de prueba y previsualizaciones generadas
 apks/
+
+# Scratch de ejecucion por subagentes
+.superpowers/
