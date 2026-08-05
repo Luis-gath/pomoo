@@ -29,6 +29,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.pomodoro.features.areas.data.Item
 import com.example.pomodoro.features.areas.data.ItemKind
 import com.example.pomodoro.features.areas.data.ItemMark
+import com.example.pomodoro.shared.ui.components.PickerDateUtils
+import com.example.pomodoro.shared.ui.components.PomodoroDatePickerDialog
+import com.example.pomodoro.shared.ui.components.PomodoroTimePickerDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -216,12 +219,43 @@ fun AreaDetailScreen(
                                 }
                             },
                             onShare = { actionError = ItemActions.share(context, listOf(item)) },
-                            onToggleMark = { viewModel.cycleMark(item) },
+                            onToggleMark = { viewModel.requestMarkChange(item) },
                             onDelete = { viewModel.deleteItem(item) }
                         )
                     }
                 }
             }
+        }
+    }
+
+    // Al llegar a ENTREGA se pide fecha y hora en dos pasos: primero el día (Material 3
+    // devuelve medianoche UTC), luego la hora local, que se combinan con PickerDateUtils.
+    val pendingDueDate by viewModel.pendingDueDateFor.collectAsState()
+    var chosenDateUtc by remember { mutableStateOf<Long?>(null) }
+
+    pendingDueDate?.let { item ->
+        val base = item.dueAt ?: System.currentTimeMillis()
+        if (chosenDateUtc == null) {
+            PomodoroDatePickerDialog(
+                initialDateMillis = base,
+                onDismiss = { viewModel.dismissDueDatePicker() },
+                onConfirm = { utcDateMillis -> chosenDateUtc = utcDateMillis },
+                confirmText = "Siguiente"
+            )
+        } else {
+            PomodoroTimePickerDialog(
+                initialHour = PickerDateUtils.hourOf(base),
+                initialMinute = PickerDateUtils.minuteOf(base),
+                onDismiss = {
+                    chosenDateUtc = null
+                    viewModel.dismissDueDatePicker()
+                },
+                onConfirm = { hour, minute ->
+                    val dueAt = PickerDateUtils.combineDateAndTime(chosenDateUtc!!, hour, minute)
+                    chosenDateUtc = null
+                    viewModel.confirmDueDate(item, dueAt)
+                }
+            )
         }
     }
 

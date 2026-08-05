@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pomodoro.features.areas.data.Area
 import com.example.pomodoro.features.areas.data.AreaRepository
+import com.example.pomodoro.features.areas.data.DeliverableAlarmScheduler
 import com.example.pomodoro.features.areas.data.FileImporter
 import com.example.pomodoro.features.areas.data.Item
 import com.example.pomodoro.features.areas.data.ItemMark
@@ -29,7 +30,8 @@ class AreaDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: AreaRepository,
     private val importItems: ImportItemsUseCase,
-    private val fileImporter: FileImporter
+    private val fileImporter: FileImporter,
+    private val alarmScheduler: DeliverableAlarmScheduler
 ) : ViewModel() {
 
     private val areaId: Int = checkNotNull(savedStateHandle["areaId"])
@@ -98,19 +100,60 @@ class AreaDetailViewModel @Inject constructor(
         }
     }
 
-    fun cycleMark(item: Item) {
-        val next = when (item.mark) {
-            ItemMark.NINGUNA -> ItemMark.IMPORTANTE
-            ItemMark.IMPORTANTE -> ItemMark.ENTREGA
-            ItemMark.ENTREGA -> ItemMark.NINGUNA
+    private val _pendingDueDateFor = MutableStateFlow<Item?>(null)
+    /** Material a la espera de que el usuario elija fecha de entrega. */
+    val pendingDueDateFor: StateFlow<Item?> = _pendingDueDateFor.asStateFlow()
+
+    /**
+     * Avanza la marca. Al llegar a ENTREGA se pide fecha en lugar de aplicarla en el acto:
+     * una entrega sin fecha no puede avisar de nada, que era el fallo anterior.
+     */
+    fun requestMarkChange(item: Item) {
+        when (item.mark) {
+            ItemMark.NINGUNA -> setMark(item, ItemMark.IMPORTANTE, null)
+            ItemMark.IMPORTANTE -> _pendingDueDateFor.value = item
+            ItemMark.ENTREGA -> setMark(item, ItemMark.NINGUNA, null)
         }
+    }
+
+    fun confirmDueDate(item: Item, dueAt: Long) {
+        _pendingDueDateFor.value = null
+        setMark(item, ItemMark.ENTREGA, dueAt)
+    }
+
+    fun dismissDueDatePicker() { _pendingDueDateFor.value = null }
+
+    private fun setMark(item: Item, mark: ItemMark, dueAt: Long?) {
         viewModelScope.launch {
-            repository.updateMark(item.id, next, if (next == ItemMark.ENTREGA) item.dueAt else null)
+            repository.updateMark(item.id, mark, dueAt)
+            val updated = item.copy(mark = mark, dueAt = dueAt, completedAt = null)
+            if (mark == ItemMark.ENTREGA && dueAt != null) {
+                repository.setDeliverableCompleted(item.id, null)
+                alarmScheduler.schedule(updated)
+                _message.value = "Entrega programada"
+            } else {
+                alarmScheduler.cancel(item.id)
+            }
+        }
+    }
+
+    /** Marca la entrega como hecha, o la devuelve a pendiente. */
+    fun toggleCompleted(item: Item) {
+        viewModelScope.launch {
+            val done = item.completedAt == null
+            repository.setDeliverableCompleted(item.id, if (done) System.currentTimeMillis() else null)
+            if (done) {
+                alarmScheduler.cancel(item.id)
+                _message.value = "Entrega completada"
+            } else {
+                alarmScheduler.schedule(item.copy(completedAt = null))
+            }
         }
     }
 
     fun deleteItem(item: Item) {
         viewModelScope.launch {
+            alarmScheduler.cancel(item.id)
             fileImporter.deleteLocalCopy(item)
             repository.deleteItem(item)
             _message.value = "Material eliminado"
