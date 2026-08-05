@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AssignmentLate
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Psychology
@@ -52,6 +53,7 @@ private val AREA_COLORS = listOf(
 fun AreasScreen(
     onAreaClick: (Area) -> Unit,
     onBack: () -> Unit,
+    onUpcomingClick: () -> Unit,
     viewModel: AreasViewModel = hiltViewModel()
 ) {
     val overviews by viewModel.areaOverviews.collectAsState()
@@ -75,6 +77,13 @@ fun AreasScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
+                    }
+                },
+                actions = {
+                    // Acceso a la vista transversal: sin esto, la única forma de ver una
+                    // entrega es entrar a su área, y "qué tengo esta semana" no tiene respuesta.
+                    IconButton(onClick = onUpcomingClick) {
+                        Icon(Icons.Default.Event, contentDescription = "Próximas entregas")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

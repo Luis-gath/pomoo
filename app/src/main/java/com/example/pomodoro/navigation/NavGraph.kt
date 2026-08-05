@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.example.pomodoro.features.areas.presentation.AreaDetailScreen
 import com.example.pomodoro.features.areas.presentation.AreasScreen
 import com.example.pomodoro.features.areas.presentation.ReceiveShareScreen
+import com.example.pomodoro.features.areas.presentation.UpcomingDeliverablesScreen
 import com.example.pomodoro.features.auth.presentation.SignInScreen
 import com.example.pomodoro.features.premium.presentation.PremiumUpgradeScreen
 import com.example.pomodoro.features.tasks.presentation.CalendarWeekScreen
@@ -38,6 +39,7 @@ object NavGraph {
     const val AREAS = "areas"
     const val RECEIVE_SHARE = "receive_share"
     const val SIGN_IN = "sign_in"
+    const val UPCOMING = "upcoming_deliverables"
 }
 
 @Composable
@@ -87,7 +89,8 @@ fun NavGraph(navController: NavHostController) {
         composable(NavGraph.AREAS) {
             AreasScreen(
                 onAreaClick = { area -> navController.navigate("area_detail/${area.id}") },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onUpcomingClick = { navController.navigate(NavGraph.UPCOMING) }
             )
         }
 
@@ -96,6 +99,15 @@ fun NavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("areaId") { type = NavType.IntType })
         ) {
             AreaDetailScreen(onBack = { navController.popBackStack() })
+        }
+
+        // Vista transversal a todas las áreas: responde "qué tengo que entregar" sin
+        // tener que entrar área por área.
+        composable(NavGraph.UPCOMING) {
+            UpcomingDeliverablesScreen(
+                onBack = { navController.popBackStack() },
+                onAreaClick = { areaId -> navController.navigate("area_detail/$areaId") }
+            )
         }
 
         // Destino al que se llega desde el menú "Compartir" de otra aplicación.
