@@ -28,9 +28,9 @@ class DeliverableNotifier(private val context: Context) {
         const val CHANNEL_NAME = "Entregas"
 
         /**
-         * Identificadores de notificación. Van muy por encima del rango de las alarmas
-         * (`DeliverableReminders` usa 500.000 + id×3), que con los volúmenes reales de una
-         * app de estudio no pasa de unas decenas de miles.
+         * Identificadores de notificación. Este espacio es independiente del de los
+         * códigos de PendingIntent, pero se separa igualmente del de las tareas, que
+         * usan el propio identificador de tarea.
          */
         private const val NOTIFICATION_BASE = 2_000_000
 
