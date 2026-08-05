@@ -413,6 +413,11 @@ class DeliverableNotifier(private val context: Context) {
         manager().notify(NOTIFICATION_BASE + item.id, notification)
     }
 
+    /** Retira el aviso. Vive aquí para que el identificador no se repita a mano fuera. */
+    fun cancel(itemId: Int) {
+        manager().cancel(NOTIFICATION_BASE + itemId)
+    }
+
     private fun manager() =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -564,9 +569,7 @@ class DeliverableReceiver : BroadcastReceiver() {
                     "MARK_DONE" -> {
                         repository.setDeliverableCompleted(itemId, System.currentTimeMillis())
                         scheduler.cancel(itemId)
-                        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE)
-                            as android.app.NotificationManager
-                        manager.cancel(500_000 + itemId)
+                        notifier.cancel(itemId)
                     }
                 }
             } catch (e: Exception) {
