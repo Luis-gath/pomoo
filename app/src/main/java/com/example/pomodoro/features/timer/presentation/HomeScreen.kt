@@ -1,5 +1,8 @@
 package com.example.pomodoro.features.timer.presentation
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.fillMaxHeight
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.BorderStroke
@@ -159,13 +162,13 @@ fun HomeScreen(
 
         // El contenido pasa por debajo de las barras del sistema, ahora transparentes:
         // este margen evita que la fila de iconos quede tapada por la barra de gestos.
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(horizontal = 20.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        // En horizontal el alto disponible es poco, y si todo se apila en una columna al
+        // temporizador solo le queda una franja: el círculo encogía hasta quedar diminuto.
+        // Por eso en apaisado se reparte en dos mitades y el reloj ocupa toda la altura.
+        val isLandscape =
+            LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        val header: @Composable () -> Unit = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -206,29 +209,31 @@ fun HomeScreen(
                     onImportClick = { viewModel.importAudio(it) }
                 )
             }
+        }
 
+        val activeTaskBlock: @Composable () -> Unit = {
             ActiveTaskHeaderLabel(modifier = Modifier.fillMaxWidth())
-            
+
             ActiveTaskCard(
                 state = activeTaskUiState,
                 onSelectTask = { navController.navigate("tasks_list") },
                 onOpenTask = {
-                     if (activeTaskUiState.hasActiveTask && uiState.activeTaskId != null) {
-                         navController.navigate("task_editor?taskId=${uiState.activeTaskId}")
-                     } else {
-                         navController.navigate("tasks_list")
-                     }
+                    if (activeTaskUiState.hasActiveTask && uiState.activeTaskId != null) {
+                        navController.navigate("task_editor?taskId=${uiState.activeTaskId}")
+                    } else {
+                        navController.navigate("tasks_list")
+                    }
                 },
                 onClearTask = { viewModel.clearActiveTask() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 10.dp)
             )
+        }
 
+        val gauge: @Composable (Modifier) -> Unit = { gaugeModifier ->
             BoxWithConstraints(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                modifier = gaugeModifier,
                 contentAlignment = Alignment.Center
             ) {
                 val gaugeSize = minOf(maxWidth * 0.88f, maxHeight).coerceAtMost(360.dp)
@@ -236,7 +241,7 @@ fun HomeScreen(
                     (uiState.currentTimeMillis / 1000) / 60,
                     (uiState.currentTimeMillis / 1000) % 60
                 )
-                
+
                 // uiState.progress es la fracción de tiempo que QUEDA (va de 1 a 0).
                 TimerGauge(
                     remaining = uiState.progress,
@@ -248,7 +253,9 @@ fun HomeScreen(
                     modifier = Modifier.size(gaugeSize)
                 )
             }
+        }
 
+        val footer: @Composable () -> Unit = {
             SessionSummary(
                 today = uiState.sessionsToday,
                 total = uiState.sessionsTotal
@@ -262,6 +269,52 @@ fun HomeScreen(
                 onStats = { navController.navigate("stats") },
                 onSettings = { navController.navigate("settings") }
             )
+        }
+
+        val panelModifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+
+        if (isLandscape) {
+            Row(
+                modifier = panelModifier,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                gauge(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    header()
+                    activeTaskBlock()
+                    Spacer(modifier = Modifier.height(4.dp))
+                    footer()
+                }
+            }
+        } else {
+            Column(
+                modifier = panelModifier,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                header()
+                activeTaskBlock()
+                gauge(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+                footer()
+            }
         }
 
         SnackbarHost(
