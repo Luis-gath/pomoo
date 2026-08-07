@@ -27,6 +27,9 @@ import com.example.pomodoro.features.tasks.domain.ScheduleEditScope
 import com.example.pomodoro.features.tasks.domain.calendarStartMillis
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import com.example.pomodoro.features.tasks.domain.RecurrenceGenerator
 import com.example.pomodoro.core.audio.AudioRecorder
 import com.example.pomodoro.core.audio.AudioPlayer
 import androidx.compose.material.icons.filled.Mic
@@ -52,6 +55,7 @@ fun TaskEditorScreen(
     var dueDateTime by remember { mutableStateOf<Long?>(System.currentTimeMillis()) }
     var priority by remember { mutableStateOf(TaskPriority.MEDIUM) }
     var repeatType by remember { mutableStateOf(RepeatType.NONE) }
+    var repeatCount by remember { mutableIntStateOf(RecurrenceGenerator.defaultCount(RepeatType.NONE)) }
     var isNotificationEnabled by remember { mutableStateOf(true) }
     var isVoiceEnabled by remember { mutableStateOf(false) }
     var audioUri by remember { mutableStateOf<String?>(null) }
@@ -160,7 +164,7 @@ fun TaskEditorScreen(
         scope: ScheduleEditScope,
         shouldStart: Boolean = startAfterSave
     ) {
-        viewModel.saveTask(task, scope) { savedTask ->
+        viewModel.saveTask(task, scope, repeatCount) { savedTask ->
             if (shouldStart) onStartTask?.invoke(savedTask) else onBack()
         }
         pendingSave = null
@@ -319,10 +323,32 @@ fun TaskEditorScreen(
                 RepeatType.entries.forEach { r ->
                     FilterChip(
                         selected = repeatType == r,
-                        onClick = { repeatType = r },
+                        onClick = {
+                            repeatType = r
+                            // Cada frecuencia tiene su horizonte razonable: mantener el
+                            // número anterior daría "60 meses" al pasar de diaria a mensual.
+                            repeatCount = RecurrenceGenerator.defaultCount(r)
+                        },
                         label = { Text(r.spanishLabel()) }
                     )
                 }
+            }
+
+            if (repeatType != RepeatType.NONE && dueDateTime != null) {
+                RepeatCountRow(
+                    repeatType = repeatType,
+                    count = repeatCount,
+                    startMillis = dueDateTime!!,
+                    onCountChange = { repeatCount = it }
+                )
+            }
+
+            if (repeatType != RepeatType.NONE && dueDateTime == null) {
+                Text(
+                    text = "Elige una fecha para poder repetir la tarea.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
 
             Divider()
@@ -605,6 +631,61 @@ private fun TaskPriority.spanishLabel(): String = when (this) {
     TaskPriority.LOW -> "Baja"
     TaskPriority.MEDIUM -> "Media"
     TaskPriority.HIGH -> "Alta"
+}
+
+/**
+ * Cuántas veces se repite y hasta cuándo llega.
+ *
+ * Se muestra la fecha final calculada porque «8 repeticiones» no dice nada por sí solo:
+ * lo que el usuario quiere saber es si le cubre hasta el examen.
+ */
+@Composable
+private fun RepeatCountRow(
+    repeatType: RepeatType,
+    count: Int,
+    startMillis: Long,
+    onCountChange: (Int) -> Unit
+) {
+    val last = remember(repeatType, count, startMillis) {
+        RecurrenceGenerator.lastOccurrence(startMillis, repeatType, count)
+    }
+    val formatter = remember { SimpleDateFormat("d MMM yyyy", Locale.getDefault()) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("$count ${repeatType.occurrencesLabel(count)}", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = "hasta el ${formatter.format(Date(last))}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = { onCountChange((count - 1).coerceAtLeast(1)) },
+                enabled = count > 1
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Una repetición menos")
+            }
+            IconButton(
+                onClick = { onCountChange((count + 1).coerceAtMost(RecurrenceGenerator.MAX_OCCURRENCES)) },
+                enabled = count < RecurrenceGenerator.MAX_OCCURRENCES
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Una repetición más")
+            }
+        }
+    }
+}
+
+private fun RepeatType.occurrencesLabel(count: Int): String = when (this) {
+    RepeatType.DAILY -> if (count == 1) "día" else "días"
+    RepeatType.WEEKLY -> if (count == 1) "semana" else "semanas"
+    RepeatType.MONTHLY -> if (count == 1) "mes" else "meses"
+    RepeatType.NONE -> "vez"
 }
 
 private fun RepeatType.spanishLabel(): String = when (this) {

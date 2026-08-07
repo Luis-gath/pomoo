@@ -25,7 +25,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import com.example.pomodoro.features.tasks.data.RepeatType
 import com.example.pomodoro.features.tasks.data.TaskPriority
+import com.example.pomodoro.features.tasks.domain.RecurrenceGenerator
 import com.example.pomodoro.features.tasks.domain.StudyTemplate
 import com.example.pomodoro.shared.ui.components.PickerDateUtils
 import com.example.pomodoro.shared.ui.components.PomodoroDatePickerDialog
@@ -58,6 +60,7 @@ fun AddTaskBottomSheet(
     var longBreakMinutes by remember { mutableIntStateOf(15) }
     var longBreakEvery by remember { mutableIntStateOf(4) }
     var includeFinalBreak by remember { mutableStateOf(false) }
+    var repeatType by remember { mutableStateOf(RepeatType.NONE) }
     
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -81,7 +84,8 @@ fun AddTaskBottomSheet(
             shortBreakMinutes = shortBreakMinutes,
             longBreakMinutes = longBreakMinutes,
             longBreakEvery = longBreakEvery,
-            includeFinalBreak = includeFinalBreak
+            includeFinalBreak = includeFinalBreak,
+            repeatType = repeatType
         )
     }
 
@@ -202,9 +206,43 @@ fun AddTaskBottomSheet(
                 selectedDate = selectedDate,
                 onDateSelected = { selectedDate = it }
             )
-            
+
+            // --- Repetición ---
+            // Solo tiene sentido con fecha: sin ella no se sabe desde cuándo contar.
+            if (selectedDate != null) {
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    text = "Repetir",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RepeatType.entries.forEach { type ->
+                        FilterChip(
+                            selected = repeatType == type,
+                            onClick = { repeatType = type },
+                            label = { Text(type.quickLabel()) }
+                        )
+                    }
+                }
+
+                if (repeatType != RepeatType.NONE) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Se crearán ${RecurrenceGenerator.defaultCount(repeatType)} tareas. " +
+                            "Ajusta el detalle desde el editor.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             Spacer(Modifier.height(20.dp))
-            
+
             // --- Selector de prioridad ---
             Text(
                 text = "Prioridad",
@@ -567,6 +605,14 @@ private fun isSameDay(ts1: Long, ts2: Long): Boolean {
 /**
  * Datos de tarea para crear/actualizar
  */
+/** Etiquetas cortas: en el alta rápida no cabe «No repetir». */
+private fun RepeatType.quickLabel(): String = when (this) {
+    RepeatType.NONE -> "Una vez"
+    RepeatType.DAILY -> "Diario"
+    RepeatType.WEEKLY -> "Semanal"
+    RepeatType.MONTHLY -> "Mensual"
+}
+
 data class TaskData(
     val title: String,
     val courseOrProject: String = "",
@@ -577,5 +623,12 @@ data class TaskData(
     val shortBreakMinutes: Int = 5,
     val longBreakMinutes: Int = 15,
     val longBreakEvery: Int = 4,
-    val includeFinalBreak: Boolean = false
+    val includeFinalBreak: Boolean = false,
+
+    /**
+     * El alta rápida solo ofrece la frecuencia; el número de repeticiones toma el valor
+     * por defecto de cada una. Para ajustarlo está el editor completo, y así lo rápido
+     * sigue siendo rápido.
+     */
+    val repeatType: RepeatType = RepeatType.NONE
 )
