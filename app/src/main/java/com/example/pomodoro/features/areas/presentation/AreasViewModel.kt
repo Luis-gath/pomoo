@@ -1,5 +1,8 @@
 package com.example.pomodoro.features.areas.presentation
 
+import kotlinx.coroutines.flow.first
+import com.example.pomodoro.features.premium.domain.FreeLimits
+import com.example.pomodoro.features.premium.data.PremiumStorage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pomodoro.features.areas.data.Area
@@ -28,7 +31,8 @@ data class AreaOverviewUi(
 
 @HiltViewModel
 class AreasViewModel @Inject constructor(
-    private val repository: AreaRepository
+    private val repository: AreaRepository,
+    private val premiumStorage: PremiumStorage
 ) : ViewModel() {
 
     private val _showCreateDialog = MutableStateFlow(false)
@@ -60,11 +64,31 @@ class AreasViewModel @Inject constructor(
 
     fun hideCreateDialog() { _showCreateDialog.value = false }
 
+    /** Áreas que aún caben en la versión gratuita, o null si es premium. */
+    val remainingFreeAreas: StateFlow<Int?> =
+        combine(areas, premiumStorage.isPremium) { list, isPremium ->
+            FreeLimits.remainingAreas(list.size, isPremium)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _limitReached = MutableStateFlow(false)
+    val limitReached: StateFlow<Boolean> = _limitReached.asStateFlow()
+
+    fun dismissLimitNotice() { _limitReached.value = false }
+
     fun createArea(name: String, type: AreaType, colorHex: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
 
         viewModelScope.launch {
+            // El tope se comprueba aquí y no en la pantalla para que no dependa de que la
+            // interfaz recuerde deshabilitar el botón.
+            val isPremium = premiumStorage.isPremium.first()
+            if (!FreeLimits.canCreateArea(areas.value.size, isPremium)) {
+                _showCreateDialog.value = false
+                _limitReached.value = true
+                return@launch
+            }
+
             repository.saveArea(Area(name = trimmed, type = type, colorHex = colorHex))
             _showCreateDialog.value = false
         }

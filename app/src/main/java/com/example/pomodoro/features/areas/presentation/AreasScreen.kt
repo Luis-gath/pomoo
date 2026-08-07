@@ -1,5 +1,9 @@
 package com.example.pomodoro.features.areas.presentation
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -59,8 +63,21 @@ fun AreasScreen(
     val overviews by viewModel.areaOverviews.collectAsState()
     val deliverables by viewModel.deliverables.collectAsState()
     val showCreate by viewModel.showCreateDialog.collectAsState()
+    val remainingFree by viewModel.remainingFreeAreas.collectAsState()
+    val limitReached by viewModel.limitReached.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(limitReached) {
+        if (limitReached) {
+            snackbarHostState.showSnackbar(
+                "Has llegado al límite de áreas gratuitas. Hazte premium para crear más."
+            )
+            viewModel.dismissLimitNotice()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -96,7 +113,17 @@ fun AreasScreen(
                 ExtendedFloatingActionButton(
                     onClick = viewModel::showCreateDialog,
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Nueva área") }
+                    // Avisar de cuántas quedan antes de tocar el botón evita la sorpresa
+                    // de que la app te frene justo cuando ibas a crear algo.
+                    text = {
+                        Text(
+                            if (remainingFree != null && remainingFree!! <= 1) {
+                                "Nueva área · queda $remainingFree"
+                            } else {
+                                "Nueva área"
+                            }
+                        )
+                    }
                 )
             }
         }

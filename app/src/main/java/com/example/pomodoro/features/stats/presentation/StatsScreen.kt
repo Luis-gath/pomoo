@@ -1,5 +1,9 @@
 package com.example.pomodoro.features.stats.presentation
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -28,7 +32,18 @@ fun StatsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.premiumRangeBlocked) {
+        if (uiState.premiumRangeBlocked) {
+            snackbarHostState.showSnackbar(
+                "El historial de más de 7 días es parte de premium."
+            )
+            viewModel.dismissPremiumNotice()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Estadísticas", fontWeight = FontWeight.Bold) },

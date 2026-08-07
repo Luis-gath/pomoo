@@ -2,9 +2,9 @@
 <resources>
     <string name="app_name">Pomodoro</string>
     <string name="premium_upgrade_title">Actualizar a la versión premium</string>
-    <string name="premium_benefit_1">Elimina los anuncios</string>
-    <string name="premium_benefit_2">Estadísticas avanzadas</string>
-    <string name="premium_benefit_3">Soporte prioritario</string>
+    <string name="premium_benefit_1">Áreas y material sin límite</string>
+    <string name="premium_benefit_2">Historial completo de tu progreso</string>
+    <string name="premium_benefit_3">Apoyas el desarrollo de la app</string>
     <string name="premium_remaining">Versión premium restante: %1$d días</string>
     <string name="premium_remaining_expired">Tu versión premium ha expirado</string>
     <string name="premium_lifetime_active">Licencia permanente activa</string>

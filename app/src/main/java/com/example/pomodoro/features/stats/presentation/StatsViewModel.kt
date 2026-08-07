@@ -1,5 +1,7 @@
 package com.example.pomodoro.features.stats.presentation
 
+import kotlinx.coroutines.flow.first
+import com.example.pomodoro.features.premium.data.PremiumStorage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pomodoro.features.stats.data.DailyStatsEntity
@@ -16,6 +18,8 @@ import javax.inject.Inject
 
 data class StatsUiState(
     val selectedRange: StatsRange = StatsRange.TODAY,
+    /** El usuario pidió un rango que necesita premium. */
+    val premiumRangeBlocked: Boolean = false,
 
     // KPI Data
     val focusCount: Int = 0,
@@ -35,7 +39,8 @@ data class StatsUiState(
 
 @HiltViewModel
 class StatsViewModel @Inject constructor(
-    private val repository: StatsRepository
+    private val repository: StatsRepository,
+    private val premiumStorage: PremiumStorage
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StatsUiState())
@@ -58,9 +63,24 @@ class StatsViewModel @Inject constructor(
         }
     }
 
+    /** Rangos que solo ve quien tiene premium. */
+    private fun StatsRange.needsPremium(): Boolean =
+        this == StatsRange.DAYS_30 || this == StatsRange.ALL
+
     fun setRange(range: StatsRange) {
-        _uiState.update { it.copy(selectedRange = range) }
-        loadStatsForRange(range)
+        viewModelScope.launch {
+            if (range.needsPremium() && !premiumStorage.isPremium.first()) {
+                // No se cambia de rango: la pantalla muestra el aviso y el usuario decide.
+                _uiState.update { it.copy(premiumRangeBlocked = true) }
+                return@launch
+            }
+            _uiState.update { it.copy(selectedRange = range, premiumRangeBlocked = false) }
+            loadStatsForRange(range)
+        }
+    }
+
+    fun dismissPremiumNotice() {
+        _uiState.update { it.copy(premiumRangeBlocked = false) }
     }
 
     private fun loadStatsForRange(range: StatsRange) {
