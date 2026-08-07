@@ -64,6 +64,16 @@ data class TaskEntity(
      * mismo título, o aplicar el cambio al mismo día de todas las semanas del horario.
      */
     val scheduleSeriesId: String? = null,
+
+    /**
+     * Identificador del horario de clases al que pertenece esta sesión.
+     *
+     * Distinto de [scheduleSeriesId] a propósito: sirve a la vez para saber que la tarea
+     * **es una clase** y para agrupar todas las sesiones del mismo curso, que es lo que
+     * permite quitar un horario entero. Se deja anulable para no necesitar valor por
+     * defecto en la migración: nulo significa que es una tarea normal.
+     */
+    val classGroupId: String? = null,
     
     // --- Notificaciones y audio ---
     val isNotificationEnabled: Boolean = false,
@@ -113,4 +123,13 @@ data class TaskEntity(
      */
     val durationMinutes: Int
         get() = computedDurationMinutes
+
+    /**
+     * Una clase del horario, no algo por hacer.
+     *
+     * Sale en el calendario y se le puede arrancar el Pomodoro, pero no debe engrosar la
+     * lista de pendientes: son sitios donde estar, no deberes.
+     */
+    val isClassSession: Boolean
+        get() = classGroupId != null
 }

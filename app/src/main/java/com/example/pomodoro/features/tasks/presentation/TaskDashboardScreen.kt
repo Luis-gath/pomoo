@@ -238,7 +238,8 @@ fun TaskDashboardScreen(
             onApplySchedule = { template, weeks, course, reminders ->
                 viewModel.applySchedule(template, weeks, course, reminders)
             },
-            onApplyHabit = viewModel::applyHabit
+            onApplyHabit = viewModel::applyHabit,
+            onApplyClasses = viewModel::applyClassSchedule
         )
     }
 

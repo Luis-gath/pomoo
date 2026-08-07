@@ -43,6 +43,9 @@ class TaskRepositoryImpl @Inject constructor(
         alarmScheduler.cancel(task.id)
     }
 
+    override suspend fun deleteClassGroup(classGroupId: String) =
+        taskDao.deleteByClassGroup(classGroupId)
+
     override suspend fun duplicateTask(task: TaskEntity): Long {
         val now = System.currentTimeMillis()
         val duplicated = task.copy(

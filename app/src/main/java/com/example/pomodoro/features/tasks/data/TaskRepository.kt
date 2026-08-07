@@ -27,6 +27,9 @@ interface TaskRepository {
 
     suspend fun deleteTask(task: TaskEntity)
 
+    /** Quita el horario completo de un curso. */
+    suspend fun deleteClassGroup(classGroupId: String)
+
     suspend fun duplicateTask(task: TaskEntity): Long
 
     // --- Estado ---

@@ -31,6 +31,10 @@ interface TaskDao {
     @Delete
     suspend fun deleteTask(task: TaskEntity)
 
+    /** Quita de golpe todas las clases de un horario, que comparten identificador. */
+    @Query("DELETE FROM tasks WHERE classGroupId = :classGroupId")
+    suspend fun deleteByClassGroup(classGroupId: String)
+
     // --- Actualizaciones parciales ---
 
     @Query("UPDATE tasks SET status = :status, updatedAt = :updatedAt WHERE id = :id")

@@ -91,6 +91,10 @@ class FakeTaskRepository(initialTasks: List<TaskEntity> = emptyList()) : TaskRep
         tasks.value = tasks.value - task.id
     }
 
+    override suspend fun deleteClassGroup(classGroupId: String) {
+        tasks.value = tasks.value.filterValues { it.classGroupId != classGroupId }
+    }
+
     override suspend fun duplicateTask(task: TaskEntity): Long =
         insertOrUpdateTask(task.copy(id = 0, title = "${task.title} (copia)"))
 

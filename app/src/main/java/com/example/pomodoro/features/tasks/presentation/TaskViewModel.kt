@@ -5,9 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.pomodoro.features.tasks.data.TaskEntity
 import com.example.pomodoro.features.tasks.data.TaskStatus
 import com.example.pomodoro.features.tasks.data.TaskRepository
+import com.example.pomodoro.features.tasks.data.RepeatType
+import com.example.pomodoro.features.tasks.domain.ApplyClassScheduleUseCase
+import com.example.pomodoro.features.tasks.domain.ClassSchedulePlan
+import com.example.pomodoro.features.tasks.domain.ApplyRecurrenceUseCase
 import com.example.pomodoro.features.tasks.domain.ApplyStudyHabitUseCase
 import com.example.pomodoro.features.tasks.domain.ApplyWeeklyScheduleUseCase
 import com.example.pomodoro.features.tasks.domain.CreateTaskUseCase
+import com.example.pomodoro.features.tasks.domain.RecurrenceGenerator
 import com.example.pomodoro.features.tasks.domain.ScheduleEditScope
 import com.example.pomodoro.features.tasks.domain.ScheduleRescheduler
 import com.example.pomodoro.features.tasks.domain.ScheduleSeriesEditor
@@ -82,7 +87,9 @@ class TaskViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val createTaskUseCase: CreateTaskUseCase,
     private val applyWeeklySchedule: ApplyWeeklyScheduleUseCase,
-    private val applyStudyHabit: ApplyStudyHabitUseCase
+    private val applyStudyHabit: ApplyStudyHabitUseCase,
+    private val applyRecurrence: ApplyRecurrenceUseCase,
+    private val applyClasses: ApplyClassScheduleUseCase
 ) : ViewModel() {
 
     /** Resultado de aplicar una rutina semanal, para avisar en pantalla. */
@@ -120,6 +127,24 @@ class TaskViewModel @Inject constructor(
                     "${result.created} sesiones creadas para ${result.weeks} semana(s)"
             } catch (e: Exception) {
                 _scheduleMessage.value = "No se pudo aplicar el horario: ${e.message}"
+            } finally {
+                _applyingSchedule.value = false
+            }
+        }
+    }
+
+    /** Da de alta el horario real de un curso creando todas sus clases. */
+    fun applyClassSchedule(plan: ClassSchedulePlan) {
+        if (_applyingSchedule.value) return
+        _applyingSchedule.value = true
+
+        viewModelScope.launch {
+            try {
+                val result = applyClasses(plan)
+                _scheduleMessage.value =
+                    "${result.created} clases de ${result.courseName} añadidas al calendario"
+            } catch (e: Exception) {
+                _scheduleMessage.value = "No se pudo crear el horario: ${e.message}"
             } finally {
                 _applyingSchedule.value = false
             }
@@ -173,6 +198,11 @@ class TaskViewModel @Inject constructor(
                 val endOfToday = startOfToday + 24 * 60 * 60 * 1000
                 
                 allTasks.forEach { task ->
+                    // Las clases del horario salen en el calendario, pero no en las listas
+                    // de pendientes: son sitios donde estar, no cosas por hacer, y un
+                    // ciclo entero las convertiría en decenas de filas de ruido.
+                    if (task.isClassSession) return@forEach
+
                     // Clasificación para VISTA DE LISTA (Timestamps)
                     if (task.status == TaskStatus.DONE) {
                         completed.add(task)
@@ -248,8 +278,19 @@ class TaskViewModel @Inject constructor(
                     shortBreakMinutes = data.shortBreakMinutes,
                     longBreakMinutes = data.longBreakMinutes,
                     longBreakEvery = data.longBreakEvery,
-                    includeFinalBreak = data.includeFinalBreak
+                    includeFinalBreak = data.includeFinalBreak,
+                    repeatType = data.repeatType
                 )
+
+                // La primera ya está creada y validada; el caso de uso le pone el
+                // identificador de serie y añade las siguientes.
+                if (createdTask != null && data.repeatType != RepeatType.NONE) {
+                    val applied = applyRecurrence(
+                        base = createdTask,
+                        repeatCount = RecurrenceGenerator.defaultCount(data.repeatType)
+                    )
+                    _scheduleMessage.value = "Se crearon ${applied.created} repeticiones"
+                }
 
                 hideAddSheet()
 
@@ -280,10 +321,22 @@ class TaskViewModel @Inject constructor(
     fun saveTask(
         task: TaskEntity,
         scope: ScheduleEditScope = ScheduleEditScope.THIS_DAY,
+        repeatCount: Int = RecurrenceGenerator.defaultCount(task.repeatType),
         onSaved: ((TaskEntity) -> Unit)? = null
     ) {
         viewModelScope.launch {
             try {
+                // Una tarea nueva que se repite se expande en toda su serie. Al editar
+                // una existente no se regenera nada: eso duplicaría las ocurrencias que
+                // ya están en el calendario.
+                val isNew = task.id == 0
+                if (isNew && task.repeatType != RepeatType.NONE) {
+                    val applied = applyRecurrence(task, repeatCount)
+                    _scheduleMessage.value = "Se crearon ${applied.created} repeticiones"
+                    applied.first?.let { onSaved?.invoke(it) }
+                    return@launch
+                }
+
                 val original = if (task.id != 0) repository.getTaskById(task.id) else null
                 val seriesUpdates = if (
                     scope == ScheduleEditScope.ALL_WEEKS &&

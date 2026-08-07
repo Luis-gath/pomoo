@@ -1,5 +1,7 @@
 package com.example.pomodoro.features.tasks.presentation
 
+import com.example.pomodoro.features.tasks.domain.ClassSchedulePlan
+import androidx.compose.material.icons.filled.School
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -58,7 +60,7 @@ import com.example.pomodoro.shared.ui.components.PomodoroTimePickerDialog
 import java.time.DayOfWeek
 import java.time.LocalTime
 
-private enum class PlannerMode { SCHEDULE, HABIT }
+private enum class PlannerMode { SCHEDULE, HABIT, CLASSES }
 
 /** Centro de planificación: aplica plantillas, construye un hábito y comparte ambos planes. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -67,13 +69,33 @@ fun WeeklyScheduleDialog(
     isApplying: Boolean,
     onDismiss: () -> Unit,
     onApplySchedule: (WeeklyScheduleTemplate, Int, String, Boolean) -> Unit,
-    onApplyHabit: (StudyHabitPlan) -> Unit
+    onApplyHabit: (StudyHabitPlan) -> Unit,
+    onApplyClasses: (ClassSchedulePlan) -> Unit
 ) {
     var mode by remember { mutableStateOf(PlannerMode.SCHEDULE) }
+
     var selectedTemplate by remember { mutableStateOf(WeeklyScheduleTemplate.INGENIERIA) }
     var scheduleWeeks by remember { mutableIntStateOf(2) }
     var course by remember { mutableStateOf("") }
     var reminders by remember { mutableStateOf(true) }
+
+    // --- Horario de clases real ---
+    var classCourse by remember { mutableStateOf("") }
+    var classDays by remember { mutableStateOf(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY)) }
+    var classStart by remember { mutableStateOf(LocalTime.of(8, 0)) }
+    var classEnd by remember { mutableStateOf(LocalTime.of(10, 0)) }
+    var classWeeks by remember { mutableIntStateOf(16) }
+    var showClassStartPicker by remember { mutableStateOf(false) }
+    var showClassEndPicker by remember { mutableStateOf(false) }
+
+    val classPlan = ClassSchedulePlan(
+        courseName = classCourse,
+        days = classDays,
+        startTime = classStart,
+        endTime = classEnd,
+        weeks = classWeeks,
+        withReminders = reminders
+    )
 
     var habitDays by remember {
         mutableStateOf(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY))
@@ -146,6 +168,14 @@ fun WeeklyScheduleDialog(
                         onClick = { mode = PlannerMode.HABIT },
                         modifier = Modifier.weight(1f)
                     )
+                    PlannerModeCard(
+                        title = "Mis clases",
+                        description = "Horario real",
+                        icon = Icons.Default.School,
+                        selected = mode == PlannerMode.CLASSES,
+                        onClick = { mode = PlannerMode.CLASSES },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
@@ -156,7 +186,19 @@ fun WeeklyScheduleDialog(
                     .padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (mode == PlannerMode.SCHEDULE) {
+                if (mode == PlannerMode.CLASSES) {
+                    ClassPlannerContent(
+                        plan = classPlan,
+                        onCourseChanged = { classCourse = it },
+                        onToggleDay = { day ->
+                            classDays = if (day in classDays) classDays - day else classDays + day
+                        },
+                        onPickStart = { showClassStartPicker = true },
+                        onPickEnd = { showClassEndPicker = true },
+                        onWeeksChanged = { classWeeks = it },
+                        onRemindersChanged = { reminders = it }
+                    )
+                } else if (mode == PlannerMode.SCHEDULE) {
                     SchedulePlannerContent(
                         selected = selectedTemplate,
                         onSelected = { selectedTemplate = it },
@@ -229,19 +271,24 @@ fun WeeklyScheduleDialog(
                     }
                     Button(
                         onClick = {
-                            if (mode == PlannerMode.SCHEDULE) {
-                                onApplySchedule(selectedTemplate, scheduleWeeks, course, reminders)
-                            } else {
-                                onApplyHabit(habitPlan)
+                            when (mode) {
+                                PlannerMode.SCHEDULE ->
+                                    onApplySchedule(selectedTemplate, scheduleWeeks, course, reminders)
+                                PlannerMode.HABIT -> onApplyHabit(habitPlan)
+                                PlannerMode.CLASSES -> onApplyClasses(classPlan)
                             }
                         },
-                        enabled = !isApplying,
+                        // Sin nombre de curso o sin días la clase no se puede crear.
+                        enabled = !isApplying &&
+                            (mode != PlannerMode.CLASSES ||
+                                (classPlan.isValid && classCourse.isNotBlank())),
                         modifier = Modifier.weight(1.25f)
                     ) {
                         Text(
                             when {
                                 isApplying -> "Creando…"
                                 mode == PlannerMode.SCHEDULE -> "Aplicar horario"
+                                mode == PlannerMode.CLASSES -> "Añadir clases"
                                 else -> "Crear hábito"
                             }
                         )
@@ -259,6 +306,30 @@ fun WeeklyScheduleDialog(
             onConfirm = { hour, minute ->
                 habitTime = LocalTime.of(hour, minute)
                 showTimePicker = false
+            }
+        )
+    }
+
+    if (showClassStartPicker) {
+        PomodoroTimePickerDialog(
+            initialHour = classStart.hour,
+            initialMinute = classStart.minute,
+            onDismiss = { showClassStartPicker = false },
+            onConfirm = { hour, minute ->
+                classStart = LocalTime.of(hour, minute)
+                showClassStartPicker = false
+            }
+        )
+    }
+
+    if (showClassEndPicker) {
+        PomodoroTimePickerDialog(
+            initialHour = classEnd.hour,
+            initialMinute = classEnd.minute,
+            onDismiss = { showClassEndPicker = false },
+            onConfirm = { hour, minute ->
+                classEnd = LocalTime.of(hour, minute)
+                showClassEndPicker = false
             }
         )
     }
@@ -391,6 +462,125 @@ private fun SchedulePlannerContent(
         primary = "${selected.sessionsPerWeek * weeks} sesiones en $weeks ${if (weeks == 1) "semana" else "semanas"}",
         secondary = "${durationText(selected.focusMinutesPerWeek)} de enfoque por semana"
     )
+}
+
+/**
+ * Alta del horario real de un curso: qué días, de qué hora a qué hora y cuántas semanas.
+ *
+ * A diferencia de las plantillas, aquí no se propone nada: el horario lo pone la
+ * institución y el usuario solo lo transcribe.
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun ClassPlannerContent(
+    plan: ClassSchedulePlan,
+    onCourseChanged: (String) -> Unit,
+    onToggleDay: (DayOfWeek) -> Unit,
+    onPickStart: () -> Unit,
+    onPickEnd: () -> Unit,
+    onWeeksChanged: (Int) -> Unit,
+    onRemindersChanged: (Boolean) -> Unit
+) {
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(Icons.Default.School, contentDescription = null)
+            Column {
+                Text(
+                    "Tu horario de clases",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Copia el horario de tu universidad o colegio. Las clases salen en el " +
+                        "calendario y puedes arrancarles el temporizador, pero no se mezclan " +
+                        "con tus pendientes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+    }
+
+    OutlinedTextField(
+        value = plan.courseName,
+        onValueChange = onCourseChanged,
+        label = { Text("Nombre del curso") },
+        placeholder = { Text("Ej: Anatomía") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Días de clase", style = MaterialTheme.typography.labelLarge)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            DayOfWeek.entries.forEach { day ->
+                FilterChip(
+                    selected = day in plan.days,
+                    onClick = { onToggleDay(day) },
+                    label = { Text(day.shortSpanish()) }
+                )
+            }
+        }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedButton(onClick = onPickStart, modifier = Modifier.weight(1f)) {
+            Text("Entra ${clockText(plan.startTime)}")
+        }
+        OutlinedButton(onClick = onPickEnd, modifier = Modifier.weight(1f)) {
+            Text("Sale ${clockText(plan.endTime)}")
+        }
+    }
+
+    if (plan.durationMinutes <= 0) {
+        Text(
+            "La hora de salida tiene que ser posterior a la de entrada.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Duración del ciclo", style = MaterialTheme.typography.labelLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf(4, 8, 12, 16, 20).forEach { weeks ->
+                FilterChip(
+                    selected = plan.weeks == weeks,
+                    onClick = { onWeeksChanged(weeks) },
+                    label = { Text("$weeks sem.") }
+                )
+            }
+        }
+    }
+
+    if (plan.isValid) {
+        Text(
+            "Se crearán ${plan.totalSessions} clases · " +
+                "${plan.minutesPerWeek / 60}h ${plan.minutesPerWeek % 60}min por semana",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("Avisarme antes de cada clase", style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = plan.withReminders, onCheckedChange = onRemindersChanged)
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)

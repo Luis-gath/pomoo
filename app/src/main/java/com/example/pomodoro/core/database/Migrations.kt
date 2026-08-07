@@ -66,6 +66,18 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
 }
 
 /**
+ * Marca las tareas que en realidad son clases de un horario.
+ *
+ * Anulable y sin valor por defecto: todo lo que ya existe queda como tarea normal, que es
+ * exactamente lo que era antes de este cambio.
+ */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `tasks` ADD COLUMN `classGroupId` TEXT")
+    }
+}
+
+/**
  * Permite archivar una entrega en vez de borrarla.
  *
  * Se añade anulable y sin valor por defecto: las entregas que ya existan quedan como
