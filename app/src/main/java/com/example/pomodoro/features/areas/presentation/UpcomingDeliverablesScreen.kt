@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -54,13 +55,17 @@ fun UpcomingDeliverablesScreen(
             return@Scaffold
         }
 
+        // Se agrupa una sola vez y no una vez por franja dentro del cuerpo de la lista,
+        // que se reevalúa en cada recomposición.
+        val byBucket = remember(rows) { rows.groupBy { it.bucket } }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             DueBucket.entries.forEach { bucket ->
-                val ofBucket = rows.filter { it.bucket == bucket }
+                val ofBucket = byBucket[bucket].orEmpty()
                 if (ofBucket.isEmpty()) return@forEach
 
                 item(key = "header_$bucket") {

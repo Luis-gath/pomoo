@@ -8,9 +8,12 @@ import com.example.pomodoro.features.areas.data.Item
 import com.example.pomodoro.features.areas.domain.DeliverableGrouping
 import com.example.pomodoro.features.areas.domain.DueBucket
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,12 +31,26 @@ class UpcomingDeliverablesViewModel @Inject constructor(
     private val alarmScheduler: DeliverableAlarmScheduler
 ) : ViewModel() {
 
+    /**
+     * Marca el paso del tiempo, no solo el cambio de datos.
+     *
+     * Sin esto la clasificación se calculaba una única vez por emisión del repositorio,
+     * así que con la pantalla abierta una entrega seguía apareciendo bajo «Hoy» después
+     * de haber vencido. El minuto es de sobra: las franjas son de horas y días.
+     */
+    private val tick: Flow<Long> = flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            delay(60_000)
+        }
+    }
+
     val rows: StateFlow<List<DeliverableRow>> = combine(
         repository.getPendingDeliverables(),
-        repository.getAllAreas()
-    ) { items, areas ->
+        repository.getAllAreas(),
+        tick
+    ) { items, areas, now ->
         val names = areas.associate { it.id to it.name }
-        val now = System.currentTimeMillis()
         items.mapNotNull { item ->
             val dueAt = item.dueAt ?: return@mapNotNull null
             DeliverableRow(

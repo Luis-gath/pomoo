@@ -28,4 +28,37 @@ class DeliverableGroupingTest {
     fun `dentro de un mes es mas adelante`() {
         assertEquals(DueBucket.MAS_ADELANTE, DeliverableGrouping.bucketOf(ahora + 30 * dia, ahora))
     }
+
+    // Las fronteras son donde de verdad puede haber un hueco o un solape: un `<` de más
+    // o de menos no lo detecta ninguna comprobación del interior de las franjas.
+
+    @Test
+    fun `justo en la hora de entrega todavia no esta vencida`() {
+        assertEquals(DueBucket.HOY, DeliverableGrouping.bucketOf(ahora, ahora))
+    }
+
+    @Test
+    fun `un milisegundo antes de la hora de entrega ya esta vencida`() {
+        assertEquals(DueBucket.VENCIDA, DeliverableGrouping.bucketOf(ahora - 1, ahora))
+    }
+
+    @Test
+    fun `exactamente un dia despues ya no es hoy`() {
+        assertEquals(DueBucket.ESTA_SEMANA, DeliverableGrouping.bucketOf(ahora + dia, ahora))
+    }
+
+    @Test
+    fun `un milisegundo antes de las veinticuatro horas sigue siendo hoy`() {
+        assertEquals(DueBucket.HOY, DeliverableGrouping.bucketOf(ahora + dia - 1, ahora))
+    }
+
+    @Test
+    fun `exactamente siete dias despues ya es mas adelante`() {
+        assertEquals(DueBucket.MAS_ADELANTE, DeliverableGrouping.bucketOf(ahora + 7 * dia, ahora))
+    }
+
+    @Test
+    fun `un milisegundo antes de los siete dias sigue siendo esta semana`() {
+        assertEquals(DueBucket.ESTA_SEMANA, DeliverableGrouping.bucketOf(ahora + 7 * dia - 1, ahora))
+    }
 }
